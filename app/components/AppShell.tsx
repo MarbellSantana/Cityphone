@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { BarChart3, Box, ChevronDown, CreditCard, LayoutDashboard, Receipt, Wrench } from "lucide-react";
 import HistoricalSalesEntry from "./HistoricalSalesEntry";
 import CashBalanceDetails from "./CashBalanceDetails";
-import HistoricalCashBackfill from "./HistoricalCashBackfill";
+import { repairSeptemberCashData } from "../lib/cash-repair";
 
 const nav = [
   [LayoutDashboard, "Dashboard", "/"],
@@ -18,9 +18,13 @@ const nav = [
 
 export default function AppShell({ title, subtitle, active, children, action, titleAction }: { title: string; subtitle: string; active: string; children: React.ReactNode; action?: React.ReactNode; titleAction?: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    repairSeptemberCashData();
+  }, []);
+
   return (
     <div className="city-shell">
-      <HistoricalCashBackfill active={active} />
       <main className="main">
         <header className="header">
           <div className="brand-block">
