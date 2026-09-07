@@ -28,7 +28,7 @@ export default function Home() {
   const todaySales = sales.filter(s => new Date(s.createdAt).toDateString() === today.toDateString());
   const todayTotal = todaySales.reduce((a,s)=>a+s.total,0);
   const todayNet = todaySales.reduce((a,s)=>a+(s.netTotal ?? s.total),0);
-  const cashBalance = cash.reduce((a,m)=>a+(m.type==="Ingreso"?m.amount:-m.amount),0);
+  const cashBalance = cash.filter(m=>m.method==="Efectivo").reduce((a,m)=>a+(m.type==="Ingreso"?m.amount:-m.amount),0);
   const pending = repairs.filter(r=>r.estado!=="Entregado");
   const lowStock = products.filter(p=>p.stock<=p.minStock);
 
