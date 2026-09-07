@@ -5,6 +5,7 @@ import { useState } from "react";
 import { BarChart3, Box, ChevronDown, CreditCard, LayoutDashboard, Receipt, Wrench } from "lucide-react";
 import HistoricalSalesEntry from "./HistoricalSalesEntry";
 import CashBalanceDetails from "./CashBalanceDetails";
+import SalesDateTop from "./SalesDateTop";
 
 const nav = [
   [LayoutDashboard, "Dashboard", "/"],
@@ -46,6 +47,7 @@ export default function AppShell({ title, subtitle, active, children, action, ti
           </div>
           {action}
         </section>
+        {active === "Ventas" && <SalesDateTop />}
         {active === "Ventas" && <HistoricalSalesEntry />}
         {active === "Caja" && <CashBalanceDetails />}
         {children}
