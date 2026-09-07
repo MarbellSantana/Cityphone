@@ -14,7 +14,7 @@ const ARCA_ENDPOINT="https://yftaloxtylijudnoewrm.supabase.co/functions/v1/arca-
 const PLANS:Record<string,Partial<Record<ProcessorMethod,FeePlan[]>>>={
  Santander:{Débito:[{id:"san-deb",label:"1,46% final",rate:1.4641}],Crédito:[{id:"san-cre",label:"2,93% final",rate:2.9282}]},
  TotalCoin:{Débito:[{id:"tc-deb-instant",label:"3,03% final",rate:3.025},{id:"tc-deb-2d",label:"2,41% final",rate:2.4079}],Crédito:[{id:"tc-cre-5d",label:"3,03% final",rate:3.025}],QR:[{id:"tc-qr",label:"0,97% final",rate:.968}],PIX:[{id:"tc-pix",label:"0% final",rate:0}]},
- BBVA:{Débito:[{id:"bbva-deb",label:"3,62% final",rate:3.6179}],Crédito:[{id:"bbva-cre-10d",label:"3,62% final",rate:3.6179}],QR:[{id:"bbva-qr",label:"0,97% final",rate:.968},{id:"bbva-qr-promo",label:"0% promo",rate:0}]},
+ "Francés":{Débito:[{id:"bbva-deb",label:"3,62% final",rate:3.6179}],Crédito:[{id:"bbva-cre-10d",label:"3,62% final",rate:3.6179}],QR:[{id:"bbva-qr",label:"0,97% final",rate:.968},{id:"bbva-qr-promo",label:"0% promo",rate:0}]},
 };
 const CHIP_PLANS:Record<string,ChipPlan[]>={
  Claro:[
