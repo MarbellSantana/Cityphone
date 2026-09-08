@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Gift, Search, UserPlus, Users, WalletCards } from "lucide-react";
+import { Gift, MessageCircle, Search, UserPlus, Users, WalletCards } from "lucide-react";
 import AppShell from "../components/AppShell";
 import { KEYS, LoyaltyCustomer, Sale, load, money, save } from "../lib/storage";
 
@@ -25,6 +25,27 @@ const makeCode=(name:string,phone:string)=>{
   const tail=normalizePhone(phone).slice(-4)||String(Date.now()).slice(-4);
   return `${base}${tail}`;
 };
+const whatsappPhone=(phone:string)=>{
+  const clean=normalizePhone(phone);
+  if(!clean)return "";
+  if(clean.startsWith("54"))return clean;
+  if(clean.startsWith("0"))return `54${clean.slice(1).replace(/^15/,"")}`;
+  return `54${clean}`;
+};
+const welcomeText=(customer:{name:string;referralCode:string})=>`💚 ¡Hola ${customer.name}! Bienvenido/a al Club City Phone.
+
+Desde hoy, cada compra que hagas con nosotros te acerca a nuevos beneficios exclusivos. 🎁
+
+Además, tenés tu propio código de referido:
+
+✨ ${customer.referralCode}
+
+Compartilo con tus amigos. Si alguien realiza su primera compra usando tu código, vos recibís $3.000 de crédito City Phone para tu próxima compra. 💸
+
+Y esto recién empieza: mientras más nos visites, más beneficios vas desbloqueando. 💚
+
+📍 City Phone
+Av. Corrientes 640, Local 8 · Galería Central`;
 
 export default function BeneficiosPage(){
   const[customers,setCustomers]=useState<LoyaltyCustomer[]>([]);
@@ -56,7 +77,13 @@ export default function BeneficiosPage(){
 
   function persist(next:LoyaltyCustomer[]){setCustomers(next);save(KEYS.loyaltyCustomers,next)}
 
-  function addCustomer(){
+  function sendWelcome(customer:{name:string;phone:string;referralCode:string}){
+    const target=whatsappPhone(customer.phone);
+    if(!target){setNotice("El cliente no tiene un teléfono válido para WhatsApp.");return}
+    window.open(`https://wa.me/${target}?text=${encodeURIComponent(welcomeText(customer))}`,"_blank","noopener,noreferrer");
+  }
+
+  function addCustomer(andSendWelcome=false){
     const cleanPhone=normalizePhone(phone);
     if(!name.trim()||cleanPhone.length<6){setNotice("Completa nombre y teléfono del cliente.");return}
     if(customers.some(c=>normalizePhone(c.phone)===cleanPhone)){setNotice("Ese teléfono ya está registrado en Club City Phone.");return}
@@ -68,7 +95,9 @@ export default function BeneficiosPage(){
       if(idx>=0)next[idx]={...next[idx],credit:next[idx].credit+3000,referralCount:next[idx].referralCount+1};
     }
     const customer:LoyaltyCustomer={id:Date.now(),name:name.trim(),phone:cleanPhone,email:email.trim()||undefined,referralCode:code,referredByCode:ref||undefined,manualPurchases:0,credit:0,referralCount:0,createdAt:new Date().toISOString()};
-    persist([customer,...next]);setName("");setPhone("");setEmail("");setReferredByCode("");setNotice(ref?"Cliente agregado. Se acreditaron $3.000 al cliente que lo recomendó.":"Cliente agregado a Club City Phone.")
+    persist([customer,...next]);
+    if(andSendWelcome)sendWelcome(customer);
+    setName("");setPhone("");setEmail("");setReferredByCode("");setNotice(ref?"Cliente agregado. Se acreditaron $3.000 al cliente que lo recomendó.":"Cliente agregado a Club City Phone.")
   }
 
   function addManualPurchase(id:number){persist(customers.map(c=>c.id===id?{...c,manualPurchases:c.manualPurchases+1}:c));setNotice("Compra sumada al beneficio del cliente.")}
@@ -91,7 +120,8 @@ export default function BeneficiosPage(){
         <input className="input" placeholder="Teléfono" value={phone} onChange={e=>setPhone(e.target.value)}/>
         <input className="input" placeholder="Email (opcional)" value={email} onChange={e=>setEmail(e.target.value)}/>
         <input className="input" placeholder="Código de quien lo refirió" value={referredByCode} onChange={e=>setReferredByCode(e.target.value.toUpperCase())}/>
-        <button className="btn primary" onClick={addCustomer}>Agregar al Club</button>
+        <button className="btn" onClick={()=>addCustomer(false)}>Agregar al Club</button>
+        <button className="btn primary" onClick={()=>addCustomer(true)}><MessageCircle size={17}/> Agregar y enviar bienvenida</button>
       </div>
       <p style={{margin:"12px 0 0",opacity:.7,fontSize:13}}>Referidos: el nuevo cliente recibe 10% OFF en su primera compra y quien lo recomendó suma $3.000 de crédito City Phone. El crédito se usa desde compras de $20.000 y no se acumula con otras promociones.</p>
     </section>
@@ -112,6 +142,7 @@ export default function BeneficiosPage(){
             <div><div style={{fontSize:12,opacity:.65}}>Referidos</div><strong>{c.referralCount}</strong></div>
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14}}>
+            <button className="btn primary" onClick={()=>sendWelcome(c)}><MessageCircle size={16}/> Enviar bienvenida</button>
             <button className="btn" onClick={()=>addManualPurchase(c.id)}>+ Compra</button>
             <button className="btn" onClick={()=>addCredit(c.id)}>+ $3.000 crédito</button>
             <button className="btn" disabled={c.credit<=0} onClick={()=>useCredit(c.id)}>Usar crédito</button>
