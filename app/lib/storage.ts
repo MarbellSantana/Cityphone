@@ -36,6 +36,19 @@ export type Sale = {
   customerDocNumber?:string;
   customerIvaConditionId?:number;
 };
+export type LoyaltyCustomer = {
+  id:number;
+  name:string;
+  phone:string;
+  email?:string;
+  referralCode:string;
+  referredByCode?:string;
+  manualPurchases:number;
+  credit:number;
+  referralCount:number;
+  createdAt:string;
+  notes?:string;
+};
 export type CashMovement = { id:number; type:"Ingreso"|"Egreso"; concept:string; amount:number; method:string; note:string; createdAt:string; source?:string; category?:string };
 export type CashClosure = { id:number; month:string; year:number; income:number; expenses:number; balance:number; movementCount:number; expenseBreakdown:Record<string,number>; closedAt:string; netSales?:number; cashOnHand?:number };
 export type Repair = { id:number; nombre:string; apellido:string; telefono:string; email:string; equipo:string; motivo:string; precio:number; estado:string; createdAt:string; diagnostico?:string; reparacionRecomendada?:string; diagnosticadoAt?:string };
@@ -52,6 +65,7 @@ export const KEYS = {
   quotes:"cityphone_quotes_v1",
   parts:"cityphone_parts_v1",
   localLoans:"cityphone_local_loans_v1",
+  loyaltyCustomers:"cityphone_loyalty_customers_v1",
 };
 
 export const CLOUD_ENDPOINT = "https://yftaloxtylijudnoewrm.supabase.co/functions/v1/cityphone-sync";
