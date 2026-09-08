@@ -1,13 +1,13 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Box, CalendarDays, Check, Minus, Plus, RefreshCw, Search, ShoppingCart, Trash2, Undo2, X } from "lucide-react";
+import { AlertTriangle, Box, CalendarDays, Check, Minus, PackageX, Plus, RefreshCw, Search, ShoppingCart, Trash2, Undo2, X } from "lucide-react";
 import AppShell from "../components/AppShell";
 import { INITIAL_PRODUCTS } from "../lib/initial-products";
-import { KEYS, LocalLoan, Product, load, money, save } from "../lib/storage";
+import { KEYS, LocalLoan, Product, ProductDefect, load, money, save } from "../lib/storage";
 
 const categories = ["Fundas", "Vidrios", "Cargadores", "Auriculares", "Accesorios"];
-type Tab = "productos" | "reposicion" | "prestamos";
+type Tab = "productos" | "reposicion" | "fallados" | "prestamos";
 type RestockView = "pendientes" | "compra" | "omitidos";
 
 export default function InventarioPage() {
@@ -24,6 +24,7 @@ export default function InventarioPage() {
   const [restockView, setRestockView] = useState<RestockView>("pendientes");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("Todas las categorías");
+  const today = new Date().toISOString().slice(0,10);
 
   useEffect(() => {
     const storedProducts = load<Product[]>(KEYS.products, []);
@@ -53,6 +54,8 @@ export default function InventarioPage() {
   const omittedRestock = useMemo(() => lowStock.filter(p => p.restockOmitted), [lowStock]);
   const visibleRestock = restockView === "pendientes" ? pendingRestock : restockView === "compra" ? purchaseList : omittedRestock;
   const purchaseUnits = useMemo(() => purchaseList.reduce((sum,p) => sum + (p.minStock - p.stock), 0), [purchaseList]);
+  const defectEntries = useMemo(() => products.flatMap(p => (p.defects || []).map(d => ({ ...d, productId:p.id, productName:p.name, category:p.category, code:p.code }))).sort((a,b) => b.createdAt.localeCompare(a.createdAt)), [products]);
+  const defectiveUnits = useMemo(() => defectEntries.reduce((sum,d) => sum + d.qty, 0), [defectEntries]);
 
   function addProduct(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -69,6 +72,30 @@ export default function InventarioPage() {
     setLoans(v => [loan, ...v]); e.currentTarget.reset(); setLoanOpen(false);
   }
 
+  function addDefect(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const f = new FormData(e.currentTarget);
+    const productId = Number(f.get("productId") || 0);
+    const qty = Number(f.get("qty") || 0);
+    const reason = String(f.get("reason") || "").trim();
+    const date = String(f.get("date") || "");
+    const note = String(f.get("note") || "").trim();
+    const product = products.find(p => p.id === productId);
+    if (!product || qty <= 0 || qty > product.stock || !reason || !date) return;
+    const defect: ProductDefect = { id:Date.now(), qty, reason, date, note, createdAt:new Date().toISOString() };
+    setProducts(v => v.map(p => p.id === productId ? { ...p, stock:p.stock-qty, defects:[defect, ...(p.defects || [])] } : p));
+    e.currentTarget.reset();
+  }
+
+  function removeDefect(productId:number, defectId:number) {
+    setProducts(v => v.map(p => {
+      if (p.id !== productId) return p;
+      const defect = (p.defects || []).find(d => d.id === defectId);
+      if (!defect) return p;
+      return { ...p, stock:p.stock+defect.qty, defects:(p.defects || []).filter(d => d.id !== defectId) };
+    }));
+  }
+
   function adjustStock(id:number, delta:number) { setProducts(v => v.map(p => p.id === id ? { ...p, stock:Math.max(0,p.stock+delta) } : p)); }
   function setRestockChoice(id:number, choice:"compra"|"omitir"|"pendiente") {
     setProducts(v => v.map(p => p.id !== id ? p : { ...p, restockSelected:choice === "compra", restockOmitted:choice === "omitir" }));
@@ -78,10 +105,11 @@ export default function InventarioPage() {
   function removeProduct(id:number) { setProducts(v => v.filter(p => p.id !== id)); }
   function removeLoan(id:number) { setLoans(v => v.filter(l => l.id !== id)); }
 
-  return <AppShell title="Inventario" subtitle="Administra productos, reposición y préstamos entre locales." active="Inventario" action={<div className="inventory-header-actions"><button className="primary-button inventory-main-action" onClick={() => setUpdateOpen(true)}><RefreshCw size={16}/> Actualización</button><button className="primary-button inventory-main-action" onClick={() => setProductOpen(true)}><Plus size={16}/> Cargar producto</button></div>}>
+  return <AppShell title="Inventario" subtitle="Administra productos, reposición, fallados y préstamos entre locales." active="Inventario" action={<div className="inventory-header-actions"><button className="primary-button inventory-main-action" onClick={() => setUpdateOpen(true)}><RefreshCw size={16}/> Actualización</button><button className="primary-button inventory-main-action" onClick={() => setProductOpen(true)}><Plus size={16}/> Cargar producto</button></div>}>
     <div className="subnav-tabs">
       <button className={tab === "productos" ? "active" : ""} onClick={() => setTab("productos")}><Box size={16}/> Productos</button>
       <button className={tab === "reposicion" ? "active" : ""} onClick={() => setTab("reposicion")}><AlertTriangle size={16}/> Reposición {pendingRestock.length > 0 && <span className="count-badge">{pendingRestock.length}</span>}</button>
+      <button className={tab === "fallados" ? "active" : ""} onClick={() => setTab("fallados")}><PackageX size={16}/> Fallados {defectiveUnits > 0 && <span className="count-badge">{defectiveUnits}</span>}</button>
       <button className={tab === "prestamos" ? "active" : ""} onClick={() => setTab("prestamos")}><CalendarDays size={16}/> Préstamos locales</button>
     </div>
 
@@ -99,6 +127,25 @@ export default function InventarioPage() {
         <button className={restockView === "omitidos" ? "active" : ""} onClick={() => setRestockView("omitidos")}>Omitidos <span className="count-badge">{omittedRestock.length}</span></button>
       </div>
       {visibleRestock.length === 0 ? <div className="empty-state compact"><Check size={32}/><b>{restockView === "pendientes" ? "No tienes reposiciones pendientes" : restockView === "compra" ? "Tu lista de compra está vacía" : "No hay productos omitidos"}</b><span>{restockView === "pendientes" ? "Los productos con stock bajo aparecerán aquí para que decidas qué hacer." : restockView === "compra" ? "Agrega desde Pendientes los productos que quieras comprar." : "Los productos que decidas no reponer por ahora aparecerán aquí."}</span></div> : <div className="inventory-restock-list">{visibleRestock.map((p,index) => { const needed=p.minStock-p.stock; return <div key={p.id} className="inventory-restock-row"><div className="inventory-restock-index">{index+1}</div><div className="inventory-restock-product"><b>{p.name}</b><small>{p.category}{p.code ? ` · ${p.code}` : ""}</small></div><div className="inventory-metric"><small>Stock actual</small><strong className="low-stock">{p.stock}</strong></div><div className="inventory-metric"><small>Mínimo</small><strong>{p.minStock}</strong></div><div className="inventory-needed"><small>Sugerencia</small><strong>{needed} {needed===1?"unidad":"unidades"}</strong></div><div className="inventory-row-actions">{restockView === "pendientes" ? <><button className="primary-button" onClick={() => setRestockChoice(p.id,"compra")}><ShoppingCart size={14}/> Agregar a compra</button><button className="outline-action" onClick={() => setRestockChoice(p.id,"omitir")}>Omitir</button></> : <button className="outline-action" onClick={() => setRestockChoice(p.id,"pendiente")}><Undo2 size={14}/> Volver a pendientes</button>}</div></div>; })}</div>}
+    </section>}
+
+    {tab === "fallados" && <section className="card workspace-card">
+      <div className="card-heading inventory-card-heading"><div><h2>Fallados y garantías</h2><p>Registra productos defectuosos o cambios de garantía. Las unidades se descuentan automáticamente del stock disponible.</p></div><div className="inventory-restock-summary"><strong>{defectiveUnits}</strong><small>{defectiveUnits===1?"unidad fallada":"unidades falladas"}</small></div></div>
+      <div className="inventory-update-hero" style={{marginTop:16}}><div className="inventory-update-icon"><PackageX size={20}/></div><div><b>Registrar producto fallado</b><span>Úsalo para vidrios que vienen malos, fundas o accesorios defectuosos y cambios dentro de la garantía de hasta 3 meses.</span></div></div>
+      <form onSubmit={addDefect} className="section-gap">
+        <div className="inventory-product-form-grid">
+          <label className="field-label modal-wide">Producto<select name="productId" required defaultValue=""><option value="" disabled>Selecciona un producto</option>{products.map(p => <option key={p.id} value={p.id}>{p.name} · Stock {p.stock}</option>)}</select></label>
+          <label className="field-label">Cantidad<input name="qty" type="number" min="1" step="1" required defaultValue="1" /></label>
+          <label className="field-label">Motivo<select name="reason" required defaultValue="Cambio por garantía (hasta 3 meses)"><option>Cambio por garantía (hasta 3 meses)</option><option>Fallado de fábrica / proveedor</option><option>Otro</option></select></label>
+          <label className="field-label">Fecha<input name="date" type="date" required defaultValue={today} /></label>
+          <label className="field-label modal-wide">Nota <small>Opcional</small><input name="note" placeholder="Ej. vidrio vino rayado, funda con botón defectuoso..." /></label>
+        </div>
+        <div className="inventory-form-actions"><button className="primary-button" type="submit"><PackageX size={15}/> Registrar fallado</button></div>
+      </form>
+      <div className="inventory-table" style={{marginTop:20}}>
+        <div className="inventory-head" style={{gridTemplateColumns:"1.5fr .55fr 1.4fr .8fr .65fr"}}><span>Producto</span><span>Cant.</span><span>Motivo</span><span>Fecha</span><span>Acción</span></div>
+        {defectEntries.length===0 ? <div className="empty-state compact"><PackageX size={32}/><b>Sin productos fallados</b><span>Los cambios de garantía y productos defectuosos aparecerán aquí.</span></div> : defectEntries.map(d => <div className="inventory-loan-row" style={{gridTemplateColumns:"1.5fr .55fr 1.4fr .8fr .65fr"}} key={`${d.productId}-${d.id}`}><span><b>{d.productName}</b><small>{d.category}{d.code ? ` · ${d.code}` : ""}{d.note ? ` · ${d.note}` : ""}</small></span><span><small>Unidades</small><b>{d.qty}</b></span><span><small>Motivo</small>{d.reason}</span><span><small>Fecha</small>{new Date(`${d.date}T00:00:00`).toLocaleDateString("es-AR")}</span><span><button className="outline-action" onClick={() => removeDefect(d.productId,d.id)} title="Anular y devolver al stock"><Undo2 size={14}/> Anular</button></span></div>)}
+      </div>
     </section>}
 
     {tab === "prestamos" && <section className="card workspace-card">
