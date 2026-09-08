@@ -1,4 +1,5 @@
 import { GLASS_PRODUCTS } from "./glass-products";
+import { CAMERA_GLASS_PRODUCTS } from "./camera-glass-products";
 
 export type ProductDefect = { id:number; qty:number; reason:string; date:string; note?:string; createdAt:string };
 export type Product = { id:number; name:string; category:string; cost:number; price:number; stock:number; minStock:number; code?:string; restockOmitted?:boolean; restockSelected?:boolean; defects?:ProductDefect[] };
@@ -64,7 +65,8 @@ function mergeGlassProducts(value:unknown):unknown {
   if (!Array.isArray(value)) return value;
   const current = (value as Product[]).filter(p => p?.name !== "Vidrio G15");
   const names = new Set(current.map(p => p?.name));
-  const missing = GLASS_PRODUCTS.filter(p => !names.has(p.name));
+  const seeded = [...GLASS_PRODUCTS, ...CAMERA_GLASS_PRODUCTS];
+  const missing = seeded.filter(p => !names.has(p.name));
   return missing.length ? [...missing, ...current] : current;
 }
 
