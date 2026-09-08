@@ -32,19 +32,20 @@ const whatsappPhone=(phone:string)=>{
   if(clean.startsWith("0"))return `54${clean.slice(1).replace(/^15/,"")}`;
   return `54${clean}`;
 };
-const welcomeText=(customer:{name:string;referralCode:string})=>`💚 ¡Hola ${customer.name}! Bienvenido/a al Club City Phone.
+const EMOJI={greenHeart:String.fromCodePoint(0x1F49A),gift:String.fromCodePoint(0x1F381),sparkles:String.fromCodePoint(0x2728),money:String.fromCodePoint(0x1F4B8),pin:String.fromCodePoint(0x1F4CD)};
+const welcomeText=(customer:{name:string;referralCode:string})=>`${EMOJI.greenHeart} ¡Hola ${customer.name}! Bienvenido/a al Club City Phone.
 
-Desde hoy, cada compra que hagas con nosotros te acerca a nuevos beneficios exclusivos. 🎁
+Desde hoy, cada compra que hagas con nosotros te acerca a nuevos beneficios exclusivos. ${EMOJI.gift}
 
 Además, tenés tu propio código de referido:
 
-✨ ${customer.referralCode}
+${EMOJI.sparkles} ${customer.referralCode}
 
-Compartilo con tus amigos. Si alguien realiza su primera compra usando tu código, vos recibís $3.000 de crédito City Phone para tu próxima compra. 💸
+Compartilo con tus amigos. Si alguien realiza su primera compra usando tu código, vos recibís $3.000 de crédito City Phone para tu próxima compra. ${EMOJI.money}
 
-Y esto recién empieza: mientras más nos visites, más beneficios vas desbloqueando. 💚
+Y esto recién empieza: mientras más nos visites, más beneficios vas desbloqueando. ${EMOJI.greenHeart}
 
-📍 City Phone
+${EMOJI.pin} City Phone
 Av. Corrientes 640, Local 8 · Galería Central`;
 
 export default function BeneficiosPage(){
@@ -80,7 +81,8 @@ export default function BeneficiosPage(){
   function sendWelcome(customer:{name:string;phone:string;referralCode:string}){
     const target=whatsappPhone(customer.phone);
     if(!target){setNotice("El cliente no tiene un teléfono válido para WhatsApp.");return}
-    window.open(`https://wa.me/${target}?text=${encodeURIComponent(welcomeText(customer))}`,"_blank","noopener,noreferrer");
+    const message=encodeURIComponent(welcomeText(customer));
+    window.open(`https://wa.me/${target}?text=${message}`,"_blank","noopener,noreferrer");
   }
 
   function addCustomer(andSendWelcome=false){
