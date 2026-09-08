@@ -1,3 +1,5 @@
+import { GLASS_PRODUCTS } from "./glass-products";
+
 export type ProductDefect = { id:number; qty:number; reason:string; date:string; note?:string; createdAt:string };
 export type Product = { id:number; name:string; category:string; cost:number; price:number; stock:number; minStock:number; code?:string; restockOmitted?:boolean; restockSelected?:boolean; defects?:ProductDefect[] };
 export type SaleItem = { productId:number; name:string; qty:number; price:number };
@@ -58,9 +60,21 @@ export const CLOUD_LAST_SYNC_KEY = "cityphone_cloud_last_sync_v1";
 const cloudKeys = new Set<string>(Object.values(KEYS));
 const pushQueues = new Map<string, Promise<void>>();
 
+function mergeGlassProducts(value:unknown):unknown {
+  if (!Array.isArray(value)) return value;
+  const current = (value as Product[]).filter(p => p?.name !== "Vidrio G15");
+  const names = new Set(current.map(p => p?.name));
+  const missing = GLASS_PRODUCTS.filter(p => !names.has(p.name));
+  return missing.length ? [...missing, ...current] : current;
+}
+
 export function load<T>(key:string, fallback:T):T {
   if (typeof window === "undefined") return fallback;
-  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) as T : fallback; } catch { return fallback; }
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : fallback;
+    return (key === KEYS.products ? mergeGlassProducts(parsed) : parsed) as T;
+  } catch { return fallback; }
 }
 
 function readDirty():Record<string,number> {
@@ -73,9 +87,7 @@ function writeDirty(value:Record<string,number>) {
   localStorage.setItem(CLOUD_DIRTY_KEY, JSON.stringify(value));
 }
 
-export function getDirtyKeys():string[] {
-  return Object.keys(readDirty());
-}
+export function getDirtyKeys():string[] { return Object.keys(readDirty()); }
 
 export function clearDirtyKeys(keys:string[]) {
   const dirty = readDirty();
