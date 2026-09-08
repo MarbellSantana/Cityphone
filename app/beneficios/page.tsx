@@ -26,27 +26,21 @@ const makeCode=(name:string,phone:string)=>{
   return `${base}${tail}`;
 };
 const whatsappPhone=(phone:string)=>{
-  const clean=normalizePhone(phone);
+  let clean=normalizePhone(phone);
   if(!clean)return "";
-  if(clean.startsWith("54"))return clean;
-  if(clean.startsWith("0"))return `54${clean.slice(1).replace(/^15/,"")}`;
-  return `54${clean}`;
+  if(clean.startsWith("549"))return clean;
+  if(clean.startsWith("54")){
+    clean=clean.slice(2);
+    if(clean.startsWith("0"))clean=clean.slice(1);
+    clean=clean.replace(/^15/,"");
+    return `549${clean}`;
+  }
+  if(clean.startsWith("0"))clean=clean.slice(1);
+  clean=clean.replace(/^15/,"");
+  return `549${clean}`;
 };
 const EMOJI={greenHeart:String.fromCodePoint(0x1F49A),gift:String.fromCodePoint(0x1F381),sparkles:String.fromCodePoint(0x2728),money:String.fromCodePoint(0x1F4B8),pin:String.fromCodePoint(0x1F4CD)};
-const welcomeText=(customer:{name:string;referralCode:string})=>`${EMOJI.greenHeart} ¡Hola ${customer.name}! Bienvenido/a al Club City Phone.
-
-Desde hoy, cada compra que hagas con nosotros te acerca a nuevos beneficios exclusivos. ${EMOJI.gift}
-
-Además, tenés tu propio código de referido:
-
-${EMOJI.sparkles} ${customer.referralCode}
-
-Compartilo con tus amigos. Si alguien realiza su primera compra usando tu código, vos recibís $3.000 de crédito City Phone para tu próxima compra. ${EMOJI.money}
-
-Y esto recién empieza: mientras más nos visites, más beneficios vas desbloqueando. ${EMOJI.greenHeart}
-
-${EMOJI.pin} City Phone
-Av. Corrientes 640, Local 8 · Galería Central`;
+const welcomeText=(customer:{name:string;referralCode:string})=>`${EMOJI.greenHeart} ¡Hola ${customer.name}! Bienvenido/a al Club City Phone.\n\nDesde hoy, cada compra que hagas con nosotros te acerca a nuevos beneficios exclusivos. ${EMOJI.gift}\n\nAdemás, tenés tu propio código de referido:\n\n${EMOJI.sparkles} ${customer.referralCode}\n\nCompartilo con tus amigos. Si alguien realiza su primera compra usando tu código, vos recibís $3.000 de crédito City Phone para tu próxima compra. ${EMOJI.money}\n\nY esto recién empieza: mientras más nos visites, más beneficios vas desbloqueando. ${EMOJI.greenHeart}\n\n${EMOJI.pin} City Phone\nAv. Corrientes 640, Local 8 · Galería Central`;
 
 export default function BeneficiosPage(){
   const[customers,setCustomers]=useState<LoyaltyCustomer[]>([]);
@@ -81,8 +75,10 @@ export default function BeneficiosPage(){
   function sendWelcome(customer:{name:string;phone:string;referralCode:string}){
     const target=whatsappPhone(customer.phone);
     if(!target){setNotice("El cliente no tiene un teléfono válido para WhatsApp.");return}
-    const message=encodeURIComponent(welcomeText(customer));
-    window.open(`https://wa.me/${target}?text=${message}`,"_blank","noopener,noreferrer");
+    const url=new URL("https://api.whatsapp.com/send");
+    url.searchParams.set("phone",target);
+    url.searchParams.set("text",welcomeText(customer));
+    window.open(url.toString(),"_blank","noopener,noreferrer");
   }
 
   function addCustomer(andSendWelcome=false){
