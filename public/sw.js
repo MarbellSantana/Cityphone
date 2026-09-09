@@ -1,4 +1,4 @@
-const CACHE_NAME = "cityphone-v4";
+const CACHE_NAME = "cityphone-v5";
 const APP_SHELL = ["/Cityphone/", "/Cityphone/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -13,6 +13,10 @@ self.addEventListener("activate", (event) => {
       self.clients.claim(),
     ])
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("fetch", (event) => {
