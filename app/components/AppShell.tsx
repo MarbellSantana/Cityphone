@@ -12,7 +12,6 @@ const nav = [
   [Receipt, "Ventas", "/ventas"],
   [CreditCard, "Caja", "/caja"],
   [Box, "Inventario", "/inventario"],
-  [Gift, "Club City Phone", "/beneficios"],
   [Wrench, "Servicio técnico", "/servicio-tecnico"],
   [BarChart3, "Meses y reportes", "/reportes"],
 ] as const;
@@ -21,7 +20,7 @@ export default function AppShell({ title, subtitle, active, children, action, ti
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="city-shell">
+    <div className="city-shell" data-ui-version="club-menu-v2">
       <main className="main">
         <header className="header">
           <div className="brand-block">
@@ -30,11 +29,27 @@ export default function AppShell({ title, subtitle, active, children, action, ti
           </div>
           <div className="header-actions">
             <div className="status-pill"><span className="status-dot" /> Sistema activo</div>
+            <a
+              href="/Cityphone/beneficios/"
+              className="menu-button"
+              style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}
+              aria-label="Abrir Club City Phone"
+            >
+              <Gift size={18}/><span>Club</span>
+            </a>
             <div className="menu-wrap">
               <button className={`menu-button ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)} aria-expanded={menuOpen}><span>Menú</span><ChevronDown size={18}/></button>
               {menuOpen && <>
                 <button className="menu-backdrop" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú" />
-                <nav className="dropdown-menu">{nav.map(([Icon,label,href]) => <Link key={label} href={href} onClick={() => setMenuOpen(false)} className={`nav-item ${active === label ? "active" : ""}`}><Icon size={18}/><span>{label}</span></Link>)}</nav>
+                <nav className="dropdown-menu">
+                  <Link href="/" onClick={() => setMenuOpen(false)} className={`nav-item ${active === "Dashboard" ? "active" : ""}`}><LayoutDashboard size={18}/><span>Dashboard</span></Link>
+                  <Link href="/ventas" onClick={() => setMenuOpen(false)} className={`nav-item ${active === "Ventas" ? "active" : ""}`}><Receipt size={18}/><span>Ventas</span></Link>
+                  <Link href="/caja" onClick={() => setMenuOpen(false)} className={`nav-item ${active === "Caja" ? "active" : ""}`}><CreditCard size={18}/><span>Caja</span></Link>
+                  <Link href="/inventario" onClick={() => setMenuOpen(false)} className={`nav-item ${active === "Inventario" ? "active" : ""}`}><Box size={18}/><span>Inventario</span></Link>
+                  <a href="/Cityphone/beneficios/" onClick={() => setMenuOpen(false)} className={`nav-item ${active === "Club City Phone" ? "active" : ""}`}><Gift size={18}/><span>Club City Phone</span></a>
+                  <Link href="/servicio-tecnico" onClick={() => setMenuOpen(false)} className={`nav-item ${active === "Servicio técnico" ? "active" : ""}`}><Wrench size={18}/><span>Servicio técnico</span></Link>
+                  <Link href="/reportes" onClick={() => setMenuOpen(false)} className={`nav-item ${active === "Meses y reportes" ? "active" : ""}`}><BarChart3 size={18}/><span>Meses y reportes</span></Link>
+                </nav>
               </>}
             </div>
           </div>
