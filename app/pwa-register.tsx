@@ -4,27 +4,31 @@ import { useEffect } from "react";
 
 export default function PWARegister() {
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
+    const refreshKey = "cityphone-cache-reset-v1";
 
-    let reloading = false;
+    const resetOldPwaCache = async () => {
+      try {
+        if ("serviceWorker" in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
 
-    const handleControllerChange = () => {
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+
+        // Importante: no tocamos localStorage ni IndexedDB, así que los datos del sistema se conservan.
+        if (!sessionStorage.getItem(refreshKey)) {
+          sessionStorage.setItem(refreshKey, "1");
+          window.location.reload();
+        }
+      } catch {
+        // Si el navegador no permite limpiar alguna caché, la app continúa normalmente.
+      }
     };
 
-    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
-
-    navigator.serviceWorker
-      .register("/Cityphone/sw.js", { updateViaCache: "none" })
-      .then(async (registration) => {
-        await registration.update();
-        if (registration.waiting) registration.waiting.postMessage({ type: "SKIP_WAITING" });
-      })
-      .catch(() => undefined);
-
-    return () => navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+    void resetOldPwaCache();
   }, []);
 
   return null;
