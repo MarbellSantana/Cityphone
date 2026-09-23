@@ -19,7 +19,38 @@ export const CLOUD_DIRTY_KEY = "cityphone_cloud_dirty_v1";
 export const CLOUD_LAST_SYNC_KEY = "cityphone_cloud_last_sync_v1";
 const cloudKeys = new Set<string>(Object.values(KEYS));
 const pushQueues = new Map<string, Promise<void>>();
-function mergeGlassProducts(value:unknown):unknown { if (!Array.isArray(value)) return value; const current=(value as Product[]).filter(p=>p?.name!=="Vidrio G15"); const names=new Set(current.map(p=>p?.name)); const seeded=[...GLASS_PRODUCTS,...CAMERA_GLASS_PRODUCTS]; const missing=seeded.filter(p=>!names.has(p.name)); return missing.length?[...missing,...current]:current; }
+function mergeGlassProducts(value:unknown):unknown {
+  if (!Array.isArray(value)) return value;
+  const normalizeName=(name:string)=>name.trim().replace(/^Vidrio común\s+/i,"Vidrio ");
+  const seeded=[...GLASS_PRODUCTS,...CAMERA_GLASS_PRODUCTS];
+  const seededNames=new Set(seeded.map(p=>normalizeName(p.name).toLowerCase()));
+  const merged=new Map<string,Product>();
+  for(const raw of value as Product[]){
+    if(!raw?.name || raw.name==="Vidrio G15") continue;
+    const name=normalizeName(raw.name);
+    const key=name.toLowerCase();
+    const item={...raw,name};
+    const previous=merged.get(key);
+    if(!previous){merged.set(key,item);continue;}
+    merged.set(key,{
+      ...previous,
+      ...item,
+      id:previous.id,
+      name,
+      stock:Math.max(Number(previous.stock)||0,Number(item.stock)||0),
+      minStock:Math.max(Number(previous.minStock)||0,Number(item.minStock)||0),
+      cost:Number(item.cost)||Number(previous.cost)||0,
+      price:Number(item.price)||Number(previous.price)||0,
+      defects:[...(previous.defects||[]),...(item.defects||[])]
+    });
+  }
+  for(const product of seeded){
+    const name=normalizeName(product.name);
+    const key=name.toLowerCase();
+    if(!merged.has(key)) merged.set(key,{...product,name});
+  }
+  return Array.from(merged.values());
+}
 export function load<T>(key:string,fallback:T):T { if(typeof window==="undefined")return fallback; try{const raw=localStorage.getItem(key);const parsed=raw?JSON.parse(raw):fallback;return(key===KEYS.products?mergeGlassProducts(parsed):parsed) as T;}catch{return fallback;} }
 function readDirty():Record<string,number>{if(typeof window==="undefined")return{};try{return JSON.parse(localStorage.getItem(CLOUD_DIRTY_KEY)||"{}") as Record<string,number>;}catch{return{};}}
 function writeDirty(value:Record<string,number>){if(typeof window!=="undefined")localStorage.setItem(CLOUD_DIRTY_KEY,JSON.stringify(value));}
