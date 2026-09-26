@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, CalendarDays, DollarSign, ReceiptText, TrendingUp, Wallet, X } from "lucide-react";
+import { BarChart3, CalendarDays, CreditCard, DollarSign, ReceiptText, TrendingUp, Wallet, X } from "lucide-react";
 import AppShell from "../components/AppShell";
 import { CashClosure, KEYS, Sale, load, money } from "../lib/storage";
 
@@ -16,6 +16,7 @@ export default function ReportesPage(){
  useEffect(()=>{setSales(load<Sale[]>(KEYS.sales,[]));setClosures(load<CashClosure[]>(KEYS.cashClosures,[]))},[]);
  const valores=useMemo(()=>meses.map((mes,index)=>{const ms=sales.filter(s=>{const d=new Date(s.createdAt);return d.getFullYear()===selectedYear&&d.getMonth()===index});return{mes,total:ms.reduce((a,s)=>a+s.total,0),cantidad:ms.length}}),[sales,selectedYear]);
  const max=Math.max(...valores.map(v=>v.total),1),totalAnual=valores.reduce((a,v)=>a+v.total,0),promedio=totalAnual/12,activeMonths=valores.filter(v=>v.cantidad>0).length;
+ const totalTarjeta=useMemo(()=>sales.filter(s=>new Date(s.createdAt).getFullYear()===selectedYear).reduce((sum,s)=>{if(s.method==="Débito"||s.method==="Crédito")return sum+s.total;if(s.method==="Pago mixto"&&(s.secondaryMethod==="Débito"||s.secondaryMethod==="Crédito"))return sum+(Number(s.otherAmount)||0);return sum},0),[sales,selectedYear]);
  const currentMonth=new Date().getFullYear()===selectedYear?new Date().getMonth():0;
  const previousMonth=currentMonth===0?0:currentMonth-1;
  const miniMonths=[previousMonth,currentMonth].filter((v,i,a)=>a.indexOf(v)===i);
@@ -31,7 +32,7 @@ export default function ReportesPage(){
  function openDay(d:number){setSelectedDay(d);setDayModal(true)}
  const yearSelector=<div style={{display:"inline-flex",gap:6,padding:4,border:"1px solid var(--border)",borderRadius:12,background:"#fff"}}>{REPORT_YEARS.map(y=><button key={y} type="button" onClick={()=>changeYear(y)} style={{border:0,borderRadius:9,padding:"7px 12px",fontWeight:900,cursor:"pointer",background:selectedYear===y?"var(--green-soft)":"transparent",color:selectedYear===y?"var(--green-dark)":"var(--muted)"}}>{y}</button>)}</div>;
  return <AppShell title={`Meses y reportes · ${selectedYear}`} subtitle="Resumen anual, meses y detalle diario de ventas." active="Meses y reportes" action={yearSelector}>
-  <section className="kpis page-kpis"><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><DollarSign size={19}/></span></div><div className="kpi-label">Ventas de {selectedYear}</div><div className="kpi-value">{money.format(totalAnual)}</div><div className="kpi-foot">Total acumulado</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><TrendingUp size={19}/></span></div><div className="kpi-label">Promedio mensual</div><div className="kpi-value">{money.format(promedio)}</div><div className="kpi-foot">Promedio sobre 12 meses</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><CalendarDays size={19}/></span></div><div className="kpi-label">Meses con ventas</div><div className="kpi-value">{activeMonths}</div><div className="kpi-foot">De 12 meses</div></div></section>
+  <section className="kpis page-kpis"><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><DollarSign size={19}/></span></div><div className="kpi-label">Ventas de {selectedYear}</div><div className="kpi-value">{money.format(totalAnual)}</div><div className="kpi-foot">Total acumulado</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><TrendingUp size={19}/></span></div><div className="kpi-label">Promedio mensual</div><div className="kpi-value">{money.format(promedio)}</div><div className="kpi-foot">Promedio sobre 12 meses</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><CalendarDays size={19}/></span></div><div className="kpi-label">Meses con ventas</div><div className="kpi-value">{activeMonths}</div><div className="kpi-foot">De 12 meses</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><CreditCard size={19}/></span></div><div className="kpi-label">Total en tarjeta</div><div className="kpi-value">{money.format(totalTarjeta)}</div><div className="kpi-foot">Bruto · sin descontar comisión bancaria</div></div></section>
 
   <section className="section-gap" style={{display:"grid",gridTemplateColumns:"minmax(320px,520px) minmax(320px,1fr)",gap:16,alignItems:"stretch"}}>
    <section className="card" style={{padding:16}} onClick={()=>setYearModal(true)}>
