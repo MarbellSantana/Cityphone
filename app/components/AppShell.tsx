@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BarChart3, Box, ChevronDown, CreditCard, Gift, LayoutDashboard, Receipt, Wrench } from "lucide-react";
+import { BarChart3, Box, ChevronDown, CreditCard, FileText, Gift, LayoutDashboard, Receipt, Wrench } from "lucide-react";
 import HistoricalSalesEntry from "./HistoricalSalesEntry";
 import CashBalanceDetails from "./CashBalanceDetails";
 import SalesDateTop from "./SalesDateTop";
@@ -13,6 +13,7 @@ const nav = [
   [CreditCard, "Caja", "/caja"],
   [Box, "Inventario", "/inventario"],
   [Gift, "Club City Phone", "/beneficios"],
+  [FileText, "Cotizaciones", "/cotizaciones"],
   [Wrench, "Servicio técnico", "/servicio-tecnico"],
   [BarChart3, "Meses y reportes", "/reportes"],
 ] as const;
