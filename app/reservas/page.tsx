@@ -5,8 +5,8 @@ import { AlertCircle, ArrowDownToLine, Banknote, CalendarClock, CheckCircle2, Cl
 import AppShell from "../components/AppShell";
 import { FundCategory, FundDistribution, FundReceivable, FundsState, KEYS, load, money, save } from "../lib/storage";
 
-const TARGETS:Record<FundCategory,number>={local:1262000,merchandise:400000,personal:600000,food:225000,capital:313000};
-const CATEGORY_LABELS:Record<FundCategory,string>={local:"Gastos fijos del local",merchandise:"Reposición de mercancía",personal:"Gastos personales",food:"Verdulería y comida",capital:"Margen y capital"};
+const TARGETS:Record<FundCategory,number>={local:1262000,merchandise:400000,personal:850000,food:150000,capital:138000};
+const CATEGORY_LABELS:Record<FundCategory,string>={local:"Gastos fijos del local",merchandise:"Reposición de mercancía",personal:"Gastos personales, servicios y plataformas",food:"Comida del hogar",capital:"Margen e imprevistos"};
 const CATEGORY_ICONS:Record<FundCategory,typeof Wallet>={local:ReceiptText,merchandise:Package,personal:Wallet,food:Banknote,capital:PiggyBank};
 const CATEGORY_ORDER:FundCategory[]=["local","merchandise","personal","food","capital"];
 const METHOD_DAYS:Record<FundReceivable["method"],number>={"Efectivo":0,"Débito":2,"Crédito":10,"Crédito internacional":21};
@@ -93,7 +93,7 @@ export default function ReservasPage(){
       <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><Wallet size={19}/></span></div><div className="kpi-label">Acreditado sin separar</div><div className="kpi-value">{money.format(available)}</div><div className="kpi-foot">Dinero marcado como recibido menos separaciones registradas</div></div>
       <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><Clock3 size={19}/></span></div><div className="kpi-label">Pendiente de caer</div><div className="kpi-value">{money.format(pendingTotal)}</div><div className="kpi-foot">{pending.length} acreditación(es) pendientes</div></div>
       <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><PiggyBank size={19}/></span></div><div className="kpi-label">Separado este mes</div><div className="kpi-value">{money.format(monthDistributedTotal)}</div><div className="kpi-foot">Total marcado como separado en frascos</div></div>
-      <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><CalendarClock size={19}/></span></div><div className="kpi-label">Meta mensual restante</div><div className="kpi-value">{money.format(targetRemaining)}</div><div className="kpi-foot">De una meta de $2.800.000</div></div>
+      <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><CalendarClock size={19}/></span></div><div className="kpi-label">Meta mensual restante</div><div className="kpi-value">{money.format(targetRemaining)}</div><div className="kpi-foot">Meta mensual: $2.800.000 (incluye $138.000 de margen)</div></div>
     </section>
 
     <section className="card" style={{padding:20,marginBottom:16}}>
@@ -128,7 +128,7 @@ export default function ReservasPage(){
     </section>
 
     <section className="card" style={{padding:20,marginBottom:16}}>
-      <div className="card-heading"><div><h2>Estado de los frascos</h2><p>Acumulado separado en el mes actual · metas configuradas en $2.800.000.</p></div><PiggyBank size={20}/></div>
+      <div className="card-heading"><div><h2>Estado de los frascos</h2><p>Acumulado separado en el mes actual. La meta de $2.800.000 contempla $1.262.000 del local, hasta $400.000 de mercancía, $1.000.000 personales y del hogar, y $138.000 de margen.</p></div><PiggyBank size={20}/></div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,220px),1fr))",gap:12,marginTop:16}}>
         {CATEGORY_ORDER.map(key=>{const Icon=CATEGORY_ICONS[key];const progress=Math.min(100,(separated[key]/TARGETS[key])*100);return <div key={key} style={{border:"1px solid var(--border)",borderRadius:12,padding:14}}><div style={{display:"flex",alignItems:"center",gap:8}}><span className="icon-box"><Icon size={17}/></span><b style={{fontSize:12}}>{CATEGORY_LABELS[key]}</b></div><div style={{fontSize:19,fontWeight:900,marginTop:12}}>{money.format(separated[key])}</div><div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>Meta: {money.format(TARGETS[key])}</div><div style={{height:7,background:"var(--green-soft)",borderRadius:99,overflow:"hidden",marginTop:10}}><div style={{width:`${progress}%`,height:"100%",background:"var(--green)",borderRadius:99}}/></div><div style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:10,color:"var(--muted)",marginTop:6}}><span>{progress.toFixed(0)}% cubierto</span><span>Falta {money.format(remaining[key])}</span></div></div>})}
       </div>
