@@ -9,12 +9,16 @@ export type LoyaltyCustomer = { id:number; name:string; phone:string; email?:str
 export type CashMovement = { id:number; type:"Ingreso"|"Egreso"; concept:string; amount:number; method:string; note:string; createdAt:string; source?:string; category?:string };
 export type CashExpenseDetail = { id:number; concept:string; amount:number; method:string; category:string; note:string; createdAt:string };
 export type CashClosure = { id:number; month:string; year:number; income:number; expenses:number; balance:number; movementCount:number; expenseBreakdown:Record<string,number>; expenseDetails?:CashExpenseDetail[]; closedAt:string; netSales?:number; cashOnHand?:number };
+export type FundCategory = "local"|"merchandise"|"personal"|"food"|"capital";
+export type FundReceivable = { id:number; saleDate:string; method:"Efectivo"|"Débito"|"Crédito"|"Crédito internacional"; amount:number; dueDate:string; status:"Pendiente"|"Acreditado"; receivedAmount?:number; receivedAt?:string };
+export type FundDistribution = { id:number; date:string; amount:number; allocations:Record<FundCategory,number> };
+export type FundsState = { receivables:FundReceivable[]; distributions:FundDistribution[] };
 export type Repair = { id:number; nombre:string; apellido:string; telefono:string; email:string; equipo:string; motivo:string; precio:number; estado:string; createdAt:string; diagnostico?:string; reparacionRecomendada?:string; diagnosticadoAt?:string; garantiaDias?:number; garantiaDesde?:string; garantiaHasta?:string; garantiaDetalle?:string; pagado?:boolean; pagoMetodo?:string; descuento?:number; totalPagado?:number; pagadoAt?:string; cashMovementId?:number };
 export type Quote = { id:number; cliente:string; telefono:string; equipo:string; reparacion:string; costo:number; precio:number; estado:string; createdAt:string };
 export type Part = { id:number; name:string; model:string; cost:number; price:number; stock:number; minStock:number };
 export type LocalLoan = { id:number; product:string; date:string; store:string; createdAt:string };
 
-export const KEYS = { products:"cityphone_products_v1", sales:"cityphone_sales_v1", cash:"cityphone_cash_v1", cashClosures:"cityphone_cash_closures_v1", repairs:"cityphone_repairs_v1", quotes:"cityphone_quotes_v1", parts:"cityphone_parts_v1", localLoans:"cityphone_local_loans_v1", loyaltyCustomers:"cityphone_loyalty_customers_v1" };
+export const KEYS = { products:"cityphone_products_v1", sales:"cityphone_sales_v1", cash:"cityphone_cash_v1", cashClosures:"cityphone_cash_closures_v1", funds:"cityphone_funds_v1", repairs:"cityphone_repairs_v1", quotes:"cityphone_quotes_v1", parts:"cityphone_parts_v1", localLoans:"cityphone_local_loans_v1", loyaltyCustomers:"cityphone_loyalty_customers_v1" };
 export const CLOUD_ENDPOINT = "https://yftaloxtylijudnoewrm.supabase.co/functions/v1/cityphone-sync";
 export const CLOUD_DIRTY_KEY = "cityphone_cloud_dirty_v1";
 export const CLOUD_LAST_SYNC_KEY = "cityphone_cloud_last_sync_v1";
