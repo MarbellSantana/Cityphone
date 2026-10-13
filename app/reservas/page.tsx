@@ -50,10 +50,10 @@ export default function ReservasPage(){
   const targetRemaining=CATEGORY_ORDER.reduce((sum,key)=>sum+remaining[key],0);
   const creditedTotal=state.receivables.filter(r=>r.status==="Acreditado").reduce((sum,r)=>sum+(r.receivedAmount??r.amount),0);
   const distributedTotal=state.distributions.reduce((sum,d)=>sum+d.amount,0);
+  const monthDistributedTotal=monthDistributions.reduce((sum,d)=>sum+d.amount,0);
   const available=Math.max(0,creditedTotal-distributedTotal);
   const pending=useMemo(()=>state.receivables.filter(r=>r.status==="Pendiente").sort((a,b)=>a.dueDate.localeCompare(b.dueDate)),[state.receivables]);
   const pendingTotal=pending.reduce((sum,r)=>sum+r.amount,0);
-  const creditedThisMonth=state.receivables.filter(r=>r.status==="Acreditado"&&r.receivedAt&&monthKey(r.receivedAt)===currentMonth).reduce((sum,r)=>sum+(r.receivedAmount??r.amount),0);
   const suggestedAmount=Math.min(available,targetRemaining,107692);
   const parsedDistribution=Number(distributionAmount);
   const amountToDistribute=Math.min(available,targetRemaining,Number.isFinite(parsedDistribution)&&distributionAmount.trim()!==""?Math.max(0,parsedDistribution):suggestedAmount);
@@ -92,7 +92,7 @@ export default function ReservasPage(){
     <section className="kpis page-kpis" style={{marginBottom:16}}>
       <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><Wallet size={19}/></span></div><div className="kpi-label">Acreditado sin separar</div><div className="kpi-value">{money.format(available)}</div><div className="kpi-foot">Dinero marcado como recibido menos separaciones registradas</div></div>
       <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><Clock3 size={19}/></span></div><div className="kpi-label">Pendiente de caer</div><div className="kpi-value">{money.format(pendingTotal)}</div><div className="kpi-foot">{pending.length} acreditación(es) pendientes</div></div>
-      <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><PiggyBank size={19}/></span></div><div className="kpi-label">Separado este mes</div><div className="kpi-value">{money.format(distributedTotal)}</div><div className="kpi-foot">Total marcado como separado en frascos</div></div>
+      <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><PiggyBank size={19}/></span></div><div className="kpi-label">Separado este mes</div><div className="kpi-value">{money.format(monthDistributedTotal)}</div><div className="kpi-foot">Total marcado como separado en frascos</div></div>
       <div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><CalendarClock size={19}/></span></div><div className="kpi-label">Meta mensual restante</div><div className="kpi-value">{money.format(targetRemaining)}</div><div className="kpi-foot">De una meta de $2.800.000</div></div>
     </section>
 
