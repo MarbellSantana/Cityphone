@@ -37,8 +37,9 @@ function syncSalesReceivables(existing:FundsState,sales:Sale[]):FundsState{
       }
     }
     parts.forEach((part,index)=>{
-      const immediate=["Efectivo","Transferencia","QR","PIX"].includes(part.method);
-      const dueDate=addDays(saleDate,METHOD_DAYS[part.method]);
+      const totalCoinInstantCredit=part.method==="Crédito"&&sale.provider==="TotalCoin";
+      const immediate=["Efectivo","Transferencia","QR","PIX"].includes(part.method)||totalCoinInstantCredit;
+      const dueDate=addDays(saleDate,immediate?0:METHOD_DAYS[part.method]);
       const key=`${sale.id}:${part.part}`;
       const previous=previousAuto.get(key);
       const amount=Math.round(part.amount);
@@ -149,7 +150,7 @@ export default function ReservasPage(){
     </section>
 
     <section className="card" style={{padding:20,marginBottom:16}}>
-      <div className="card-heading"><div><h2>Ventas sincronizadas automáticamente</h2><p>Las ventas registradas en Ventas aparecen aquí sin volver a cargar los importes. Transferencia, QR y PIX se consideran disponibles de inmediato.</p></div><ReceiptText size={20}/></div>
+      <div className="card-heading"><div><h2>Ventas sincronizadas automáticamente</h2><p>Las ventas registradas en Ventas aparecen aquí sin volver a cargar los importes. Transferencia, QR y PIX se consideran disponibles de inmediato. El crédito de TotalCoin también se acredita de inmediato, descontando su comisión del 5,35%.</p></div><ReceiptText size={20}/></div>
       <form onSubmit={registerDay} style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,190px),1fr))",gap:12,marginTop:16}}>
         <label className="field-label">Fecha de venta<input type="date" value={saleDate} max={today} onChange={e=>setSaleDate(e.target.value)} required/></label>
         <label className="field-label">Efectivo · disponible hoy<input type="number" min="0" step="1" value={cash} onChange={e=>setCash(e.target.value)} placeholder="$ 0"/></label>
