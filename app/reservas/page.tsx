@@ -3,18 +3,63 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, ArrowDownToLine, Banknote, CalendarClock, CheckCircle2, Clock3, CreditCard, Package, PiggyBank, Plus, ReceiptText, Wallet, X } from "lucide-react";
 import AppShell from "../components/AppShell";
-import { FundCategory, FundDistribution, FundReceivable, FundsState, KEYS, load, money, save } from "../lib/storage";
+import { FundCategory, FundDistribution, FundReceivable, FundsState, KEYS, Sale, load, money, save } from "../lib/storage";
 
 const TARGETS:Record<FundCategory,number>={local:1262000,merchandise:400000,personal:850000,food:150000,capital:138000};
 const CATEGORY_LABELS:Record<FundCategory,string>={local:"Gastos fijos del local",merchandise:"Reposición de mercancía",personal:"Gastos personales, servicios y plataformas",food:"Comida del hogar",capital:"Margen e imprevistos"};
 const CATEGORY_ICONS:Record<FundCategory,typeof Wallet>={local:ReceiptText,merchandise:Package,personal:Wallet,food:Banknote,capital:PiggyBank};
 const CATEGORY_ORDER:FundCategory[]=["local","merchandise","personal","food","capital"];
-const METHOD_DAYS:Record<FundReceivable["method"],number>={"Efectivo":0,"Débito":2,"Crédito":10,"Crédito internacional":21};
+const METHOD_DAYS:Record<FundReceivable["method"],number>={"Efectivo":0,"Transferencia":0,"QR":0,"PIX":0,"Débito":2,"Crédito":10,"Crédito internacional":21};
 const TODAY=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};
 function addDays(date:string,days:number){const d=new Date(date+"T12:00:00");d.setDate(d.getDate()+days);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function monthKey(date:string){return date.slice(0,7);}
 function prettyDate(date:string){if(!date)return "—";const [y,m,d]=date.split("-").map(Number);return new Date(y,m-1,d,12).toLocaleDateString("es-AR",{day:"2-digit",month:"short",year:"numeric"});}
 function emptyState():FundsState{return{receivables:[],distributions:[]};}
+function saleDateFromIso(value:string){
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime()))return TODAY();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function syncSalesReceivables(existing:FundsState,sales:Sale[]):FundsState{
+  const previousAuto=new Map(existing.receivables.filter(r=>r.sourceSaleId!==undefined&&r.sourcePart).map(r=>[`${r.sourceSaleId}:${r.sourcePart}`,r]));
+  const auto:FundReceivable[]=[];
+  for(const sale of sales){
+    const saleDate=saleDateFromIso(sale.createdAt);
+    const parts:{part:"full"|"cash"|"other";method:FundReceivable["method"];amount:number;commission:number}[]=[];
+    if(sale.method==="Pago mixto"){
+      if((sale.cashAmount||0)>0)parts.push({part:"cash",method:"Efectivo",amount:sale.cashAmount,commission:0});
+      const method=sale.secondaryMethod as FundReceivable["method"]|undefined;
+      if((sale.otherAmount||0)>0&&method&&method!=="Efectivo"&&method!=="Crédito internacional")parts.push({part:"other",method,amount:sale.otherAmount,commission:sale.commission||0});
+    }else{
+      const method=sale.method as FundReceivable["method"];
+      if(["Efectivo","Transferencia","Débito","Crédito","QR","PIX"].includes(method)&&sale.total>0){
+        parts.push({part:"full",method,amount:sale.total,commission:method==="Efectivo"||method==="Transferencia"?0:sale.commission||0});
+      }
+    }
+    parts.forEach((part,index)=>{
+      const immediate=["Efectivo","Transferencia","QR","PIX"].includes(part.method);
+      const dueDate=addDays(saleDate,METHOD_DAYS[part.method]);
+      const key=`${sale.id}:${part.part}`;
+      const previous=previousAuto.get(key);
+      const amount=Math.round(part.amount);
+      const estimatedReceived=Math.max(0,Math.round(part.amount-part.commission));
+      auto.push({
+        id:sale.id*10+index,
+        saleDate,
+        method:part.method,
+        amount,
+        dueDate,
+        status:immediate?"Acreditado":previous?.status||"Pendiente",
+        receivedAmount:immediate?(previous?.status==="Acreditado"&&previous.receivedAmount!==undefined?previous.receivedAmount:estimatedReceived):(previous?.status==="Acreditado"?previous.receivedAmount:undefined),
+        receivedAt:immediate?(previous?.receivedAt||saleDate):(previous?.status==="Acreditado"?previous.receivedAt:undefined),
+        sourceSaleId:sale.id,
+        sourcePart:part.part
+      });
+    });
+  }
+  const manual=existing.receivables.filter(r=>r.sourceSaleId===undefined);
+  return {receivables:[...auto,...manual],distributions:existing.distributions};
+}
 function allocate(amount:number,remaining:Record<FundCategory,number>):Record<FundCategory,number>{
   const result:Record<FundCategory,number>={local:0,merchandise:0,personal:0,food:0,capital:0};
   const totalRemaining=CATEGORY_ORDER.reduce((sum,key)=>sum+Math.max(0,remaining[key]),0);
@@ -39,7 +84,14 @@ export default function ReservasPage(){
   const [distributionAmount,setDistributionAmount]=useState("");
   const [confirmingId,setConfirmingId]=useState<number|null>(null);
 
-  useEffect(()=>{setState(load<FundsState>(KEYS.funds,emptyState()));setLoaded(true);},[]);
+  useEffect(()=>{
+    const existing=load<FundsState>(KEYS.funds,emptyState());
+    const sales=load<Sale[]>(KEYS.sales,[]);
+    const synced=syncSalesReceivables(existing,sales);
+    setState(synced);
+    if(JSON.stringify(existing)!==JSON.stringify(synced))save(KEYS.funds,synced);
+    setLoaded(true);
+  },[]);
   function persist(next:FundsState){setState(next);save(KEYS.funds,next);}
 
   const today=TODAY();
@@ -97,7 +149,7 @@ export default function ReservasPage(){
     </section>
 
     <section className="card" style={{padding:20,marginBottom:16}}>
-      <div className="card-heading"><div><h2>Registrar ventas del día</h2><p>Las fechas de acreditación se calculan automáticamente desde la fecha de venta.</p></div><ReceiptText size={20}/></div>
+      <div className="card-heading"><div><h2>Ventas sincronizadas automáticamente</h2><p>Las ventas registradas en Ventas aparecen aquí sin volver a cargar los importes. Transferencia, QR y PIX se consideran disponibles de inmediato.</p></div><ReceiptText size={20}/></div>
       <form onSubmit={registerDay} style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(min(100%,190px),1fr))",gap:12,marginTop:16}}>
         <label className="field-label">Fecha de venta<input type="date" value={saleDate} max={today} onChange={e=>setSaleDate(e.target.value)} required/></label>
         <label className="field-label">Efectivo · disponible hoy<input type="number" min="0" step="1" value={cash} onChange={e=>setCash(e.target.value)} placeholder="$ 0"/></label>
@@ -106,7 +158,7 @@ export default function ReservasPage(){
         <label className="field-label">Crédito internacional · 21 días<input type="number" min="0" step="1" value={international} onChange={e=>setInternational(e.target.value)} placeholder="$ 0"/></label>
         <div style={{display:"flex",alignItems:"end"}}><button className="primary-button" type="submit" style={{width:"100%",justifyContent:"center"}}><Plus size={16}/> Registrar venta</button></div>
       </form>
-      <p style={{fontSize:12,color:"var(--muted)",margin:"12px 0 0"}}><AlertCircle size={14} style={{display:"inline",verticalAlign:"-2px",marginRight:5}}/>Ingresa el total por medio de pago. En tarjetas, el importe que finalmente se acredita puede ser menor por comisiones; al confirmar la llegada podrás registrar el importe real.</p>
+      <p style={{fontSize:12,color:"var(--muted)",margin:"12px 0 0"}}><AlertCircle size={14} style={{display:"inline",verticalAlign:"-2px",marginRight:5}}/>Este formulario queda para cargar registros históricos o ventas que no se hayan registrado en Ventas. No vuelvas a cargar aquí una venta que ya está en el sistema, porque se duplicaría. En tarjetas, confirma el importe real cuando llegue, ya que puede variar por comisiones.</p>
       {notice&&<div role="status" style={{marginTop:12,padding:12,borderRadius:10,background:"var(--green-soft)",fontSize:13,fontWeight:700}}>{notice}</div>}
     </section>
 
