@@ -1,5 +1,6 @@
 import { GLASS_PRODUCTS } from "./glass-products";
 import { CAMERA_GLASS_PRODUCTS } from "./camera-glass-products";
+import { MAGSAFE_CASE_PRODUCTS } from "./magsafe-case-products";
 
 export type ProductDefect = { id:number; qty:number; reason:string; date:string; note?:string; createdAt:string };
 export type Product = { id:number; name:string; category:string; cost:number; price:number; stock:number; minStock:number; code?:string; restockOmitted?:boolean; restockSelected?:boolean; defects?:ProductDefect[] };
@@ -27,7 +28,7 @@ const pushQueues = new Map<string, Promise<void>>();
 function mergeGlassProducts(value:unknown):unknown {
   if (!Array.isArray(value)) return value;
   const normalizeName=(name:string)=>name.trim().replace(/^Vidrio común\s+/i,"Vidrio ");
-  const seeded=[...GLASS_PRODUCTS,...CAMERA_GLASS_PRODUCTS];
+  const seeded=[...GLASS_PRODUCTS,...CAMERA_GLASS_PRODUCTS,...MAGSAFE_CASE_PRODUCTS];
   const seededNames=new Set(seeded.map(p=>normalizeName(p.name).toLowerCase()));
   const merged=new Map<string,Product>();
   for(const raw of value as Product[]){
