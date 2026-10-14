@@ -1,4 +1,4 @@
-import { Product } from "./storage";
+import type { Product } from "./storage";
 
 export const MAGSAFE_CASE_PRODUCTS: Product[] = [
   {id:1201,name:"Funda MagSafe transparente iPhone 11",category:"Fundas",cost:2000,price:20000,stock:0,minStock:1},
