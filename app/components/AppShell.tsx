@@ -11,7 +11,7 @@ const nav = [
   [LayoutDashboard, "Dashboard", "/"],
   [Receipt, "Ventas", "/ventas"],
   [CreditCard, "Caja", "/caja"],
-  [WalletCards, "Reservas y acreditaciones", "/reservas"],
+  [WalletCards, "Reservas", "/reservas"],
   [Box, "Inventario", "/inventario"],
   [Gift, "Club City Phone", "/beneficios"],
   [FileText, "Cotizaciones", "/cotizaciones"],
