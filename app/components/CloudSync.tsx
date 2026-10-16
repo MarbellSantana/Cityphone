@@ -132,7 +132,10 @@ export default function CloudSync() {
           localStorage.getItem(key) === JSON.stringify(localState[key])
         );
         clearDirtyKeys(syncedKeys);
-        const changedDuringBootstrap = new Set(getDirtyKeys());
+        // Protect every key that was dirty when this bootstrap began, even if
+        // its upload finished while we were waiting for the cloud response.
+        // Otherwise an older remote snapshot can overwrite a fresh stock deduction.
+        const changedDuringBootstrap = new Set([...dirtyKeys, ...getDirtyKeys()]);
         const changed = applyRemote(remote.state || {}, changedDuringBootstrap);
         if (changed && !sessionStorage.getItem(SESSION_HYDRATED)) {
           sessionStorage.setItem(SESSION_HYDRATED, "1");
