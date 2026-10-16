@@ -126,8 +126,14 @@ export default function CloudSync() {
           remote.state = { ...(remote.state || {}), ...(repaired.state || {}) };
         }
 
-        clearDirtyKeys(dirtyKeys);
-        const changed = applyRemote(remote.state || {});
+        // Do not let a slow cloud response overwrite changes made while it was in flight.
+        // Only clear dirty flags for values that are still exactly the snapshot we sent.
+        const syncedKeys = dirtyKeys.filter((key) =>
+          localStorage.getItem(key) === JSON.stringify(localState[key])
+        );
+        clearDirtyKeys(syncedKeys);
+        const changedDuringBootstrap = new Set(getDirtyKeys());
+        const changed = applyRemote(remote.state || {}, changedDuringBootstrap);
         if (changed && !sessionStorage.getItem(SESSION_HYDRATED)) {
           sessionStorage.setItem(SESSION_HYDRATED, "1");
           window.location.reload();
@@ -161,7 +167,10 @@ export default function CloudSync() {
           return;
         }
 
-        const changed = applyRemote(remote.state || {});
+        // A sale or stock update can happen while pullLatest is awaiting the network.
+        // Protect those keys from an older cloud snapshot arriving afterward.
+        const changedDuringPull = new Set(getDirtyKeys());
+        const changed = applyRemote(remote.state || {}, changedDuringPull);
         if (changed) window.location.reload();
       } catch (error) {
         console.error("CityPhone cloud pull failed", error);
