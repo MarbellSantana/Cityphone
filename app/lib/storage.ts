@@ -43,7 +43,9 @@ function mergeGlassProducts(value:unknown):unknown {
       ...item,
       id:previous.id,
       name,
-      stock:Math.max(Number(previous.stock)||0,Number(item.stock)||0),
+      // Keep stock tied to the first product ID we retain. Taking the maximum
+      // from duplicate records can resurrect units already sold.
+      stock:Number(previous.stock)||0,
       minStock:Math.max(Number(previous.minStock)||0,Number(item.minStock)||0),
       cost:Number(item.cost)||Number(previous.cost)||0,
       price:Number(item.price)||Number(previous.price)||0,
