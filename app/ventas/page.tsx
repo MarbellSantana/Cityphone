@@ -86,7 +86,7 @@ export default function VentasPage(){
    s.id,new Date(s.createdAt).toLocaleDateString("es-AR"),new Date(s.createdAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"}),
    s.customer||"Consumidor final",i.name,i.productId,i.qty,i.price,i.qty*i.price,s.total,s.method,s.provider||"",s.secondaryMethod||"",s.invoiceStatus||""
   ]));
-  const csv="\\uFEFF"+[headers,...rows].map(row=>row.map(csvCell).join(";")).join("\\r\\n");
+  const csv="\uFEFF"+[headers,...rows].map(row=>row.map(csvCell).join(";")).join("\r\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob);
   const link=document.createElement("a");
