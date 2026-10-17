@@ -266,3 +266,46 @@
     grid-column: 1 !important;
   }
 }
+
+
+/* Inventario: jerarquía visual, alertas y trazabilidad */
+.inventory-kpis { margin-bottom: 16px; }
+.inventory-kpis .kpi-card { min-height: 145px; padding: 17px; }
+.inventory-kpis .kpi-top { margin-bottom: 13px; }
+.inventory-kpis .kpi-value { font-size: clamp(20px, 2vw, 27px); overflow-wrap: anywhere; }
+.inventory-products-card { border-color: #e0e9e2; }
+.inventory-toolbar { flex-wrap: wrap; }
+.inventory-toolbar .search-field { min-width: 220px; }
+.inventory-toolbar .filter-select { min-height: 43px; font-size: 11px; }
+.inventory-product-row { transition: background .15s ease; }
+.inventory-product-row:hover { background: #fbfdfb; }
+.inventory-product-row .inventory-product-main h3 { line-height: 1.35; overflow-wrap: anywhere; }
+.inventory-reorder { display: inline-flex; align-items: center; gap: 4px; width: fit-content; margin-top: 6px; padding: 4px 7px; border-radius: 999px; background: #fff4e5; color: #98621b !important; font-weight: 900; }
+.inventory-movement-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 18px 0; }
+.inventory-movement-summary > div { display: grid; gap: 5px; padding: 13px 14px; border: 1px solid var(--border); border-radius: 13px; background: #fbfdfb; }
+.inventory-movement-summary small { color: var(--muted); font-size: 10px; font-weight: 700; }
+.inventory-movement-summary strong { font-size: 15px; }
+.inventory-movement-list { display: grid; gap: 8px; margin-top: 10px; }
+.inventory-movement-row { display: grid; grid-template-columns: 38px minmax(0,1fr) 76px; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 13px; background: #fff; }
+.inventory-movement-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; }
+.inventory-movement-icon.positive { background: var(--green-soft); color: #34804a; }
+.inventory-movement-icon.negative { background: #fff0ed; color: #bb5549; }
+.inventory-movement-info { min-width: 0; display: grid; gap: 3px; }
+.inventory-movement-info b { font-size: 11px; overflow-wrap: anywhere; }
+.inventory-movement-info small { color: var(--muted); font-size: 9px; line-height: 1.4; overflow-wrap: anywhere; }
+.inventory-movement-quantity { text-align: right; }
+.inventory-movement-quantity strong, .inventory-movement-quantity small { display: block; }
+.inventory-movement-quantity strong { font-size: 17px; }
+.inventory-movement-quantity small { color: var(--muted); font-size: 8px; }
+.positive-text { color: #34804a; }
+.negative-text { color: #bb5549; }
+@media (max-width: 640px) {
+  .inventory-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .inventory-kpis .kpi-card { min-height: 130px; padding: 13px; }
+  .inventory-kpis .kpi-value { font-size: 20px; }
+  .inventory-toolbar .search-field { min-width: 0; width: 100%; }
+  .inventory-movement-summary { grid-template-columns: 1fr; }
+  .inventory-movement-row { grid-template-columns: 34px minmax(0,1fr) 58px; gap: 9px; padding: 10px; }
+  .inventory-movement-icon { width: 32px; height: 32px; }
+  .inventory-movement-quantity strong { font-size: 15px; }
+}
