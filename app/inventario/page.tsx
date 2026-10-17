@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Box, CalendarDays, Check, Minus, PackageX, Plus, RefreshCw, Search, ShoppingCart, Trash2, Undo2, X } from "lucide-react";
+import { AlertTriangle, Box, CalendarDays, Check, Download, Minus, PackageX, Plus, RefreshCw, Search, ShoppingCart, Trash2, Undo2, X } from "lucide-react";
 import AppShell from "../components/AppShell";
 import { INITIAL_PRODUCTS } from "../lib/initial-products";
 import { KEYS, LocalLoan, Product, ProductDefect, load, money, save } from "../lib/storage";
@@ -57,6 +57,22 @@ export default function InventarioPage() {
   const defectEntries = useMemo(() => products.flatMap(p => (p.defects || []).map(d => ({ ...d, productId:p.id, productName:p.name, category:p.category, code:p.code }))).sort((a,b) => b.createdAt.localeCompare(a.createdAt)), [products]);
   const defectiveUnits = useMemo(() => defectEntries.reduce((sum,d) => sum + d.qty, 0), [defectEntries]);
 
+  function exportInventory() {
+    const headers = ["ID producto", "Producto", "Categoría", "Código", "Costo", "Precio", "Stock disponible", "Stock mínimo"];
+    const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const rows = products.map(p => [p.id, p.name, p.category, p.code || "", p.cost, p.price, p.stock, p.minStock]);
+    const csv = "\\uFEFF" + [headers, ...rows].map(row => row.map(csvCell).join(";")).join("\\r\\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `cityphone-inventario-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   function addProduct(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -105,7 +121,7 @@ export default function InventarioPage() {
   function removeProduct(id:number) { setProducts(v => v.filter(p => p.id !== id)); }
   function removeLoan(id:number) { setLoans(v => v.filter(l => l.id !== id)); }
 
-  return <AppShell title="Inventario" subtitle="Administra productos, reposición, fallados y préstamos entre locales." active="Inventario" action={<div className="inventory-header-actions"><button className="primary-button inventory-main-action" onClick={() => setUpdateOpen(true)}><RefreshCw size={16}/> Actualización</button><button className="primary-button inventory-main-action" onClick={() => setProductOpen(true)}><Plus size={16}/> Cargar producto</button></div>}>
+  return <AppShell title="Inventario" subtitle="Administra productos, reposición, fallados y préstamos entre locales." active="Inventario" action={<div className="inventory-header-actions"><button className="primary-button inventory-main-action" onClick={exportInventory}><Download size={16}/> Exportar inventario</button><button className="primary-button inventory-main-action" onClick={() => setUpdateOpen(true)}><RefreshCw size={16}/> Actualización</button><button className="primary-button inventory-main-action" onClick={() => setProductOpen(true)}><Plus size={16}/> Cargar producto</button></div>}>
     <div className="subnav-tabs">
       <button className={tab === "productos" ? "active" : ""} onClick={() => setTab("productos")}><Box size={16}/> Productos</button>
       <button className={tab === "reposicion" ? "active" : ""} onClick={() => setTab("reposicion")}><AlertTriangle size={16}/> Reposición {pendingRestock.length > 0 && <span className="count-badge">{pendingRestock.length}</span>}</button>
