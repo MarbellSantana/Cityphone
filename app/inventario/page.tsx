@@ -56,10 +56,17 @@ export default function InventarioPage() {
 
   const movementProduct = (product:Product, type:StockMovement["type"], quantity:number, delta:number, reason:string, referenceId?:number):StockMovement => { const unitValue = type === "Compra" || type === "Alta" ? product.cost : product.price; return { id:Date.now()+Math.floor(Math.random()*1000), productId:product.id, productName:product.name, type, quantity, delta, reason, createdAt:new Date().toISOString(), referenceId, unitValue, totalValue:unitValue*quantity }; };
 
-  const filtered = useMemo(() => products.filter(p => {
-    const q = search.toLowerCase().trim();
-    return (!q || p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q) || (p.code || "").toLowerCase().includes(q)) && (category === "Todas las categorías" || p.category === category) && (stockStatus === "todos" || (stockStatus === "bajo" && p.minStock > 0 && p.stock < p.minStock) || (stockStatus === "sin" && p.stock <= 0));
-  }), [products, search, category, stockStatus]);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase("es");
+    const normalizedCategory = (value: string) => value.trim().toLocaleLowerCase("es");
+    return products.filter(p => {
+      const productCategory = normalizedCategory(p.category || "");
+      const matchesSearch = !q || p.name.toLocaleLowerCase("es").includes(q) || productCategory.includes(q) || (p.code || "").toLocaleLowerCase("es").includes(q);
+      const matchesCategory = category === "Todas las categorías" || productCategory === normalizedCategory(category);
+      const matchesStock = stockStatus === "todos" || (stockStatus === "bajo" && p.minStock > 0 && p.stock < p.minStock) || (stockStatus === "sin" && p.stock <= 0);
+      return matchesSearch && matchesCategory && matchesStock;
+    });
+  }, [products, search, category, stockStatus]);
 
   const updateResults = useMemo(() => {
     const q = updateSearch.toLowerCase().trim();
