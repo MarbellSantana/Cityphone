@@ -61,7 +61,7 @@ export default function InventarioPage() {
     const headers = ["ID producto", "Producto", "Categoría", "Código", "Costo", "Precio", "Stock disponible", "Stock mínimo"];
     const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
     const rows = products.map(p => [p.id, p.name, p.category, p.code || "", p.cost, p.price, p.stock, p.minStock]);
-    const csv = "\\uFEFF" + [headers, ...rows].map(row => row.map(csvCell).join(";")).join("\\r\\n");
+    const csv = "\uFEFF" + [headers, ...rows].map(row => row.map(csvCell).join(";")).join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
