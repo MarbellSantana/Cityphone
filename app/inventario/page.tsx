@@ -1,18 +1,19 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Box, CalendarDays, Check, Download, Minus, PackageX, Plus, RefreshCw, Search, ShoppingCart, Trash2, Undo2, X } from "lucide-react";
+import { AlertTriangle, Box, CalendarDays, Check, Download, History, Minus, PackageX, Plus, RefreshCw, Search, ShoppingCart, Trash2, TrendingUp, Undo2, X } from "lucide-react";
 import AppShell from "../components/AppShell";
 import { INITIAL_PRODUCTS } from "../lib/initial-products";
-import { KEYS, LocalLoan, Product, ProductDefect, load, money, save } from "../lib/storage";
+import { KEYS, LocalLoan, Product, ProductDefect, StockMovement, load, money, save } from "../lib/storage";
 
 const categories = ["Fundas", "Vidrios", "Cargadores", "Auriculares", "Accesorios"];
-type Tab = "productos" | "reposicion" | "fallados" | "prestamos";
+type Tab = "productos" | "reposicion" | "fallados" | "prestamos" | "movimientos";
 type RestockView = "pendientes" | "compra" | "omitidos";
 
 export default function InventarioPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loans, setLoans] = useState<LocalLoan[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [loanOpen, setLoanOpen] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
@@ -28,13 +29,31 @@ export default function InventarioPage() {
 
   useEffect(() => {
     const storedProducts = load<Product[]>(KEYS.products, []);
-    setProducts(storedProducts.length > 0 ? storedProducts : INITIAL_PRODUCTS);
+    const initial = storedProducts.length > 0 ? storedProducts : INITIAL_PRODUCTS;
+    setProducts(initial);
+    if (storedProducts.length === 0) save(KEYS.products, initial);
     setLoans(load<LocalLoan[]>(KEYS.localLoans, []));
+    setMovements(load<StockMovement[]>(KEYS.stockMovements, []));
     setDataLoaded(true);
   }, []);
 
-  useEffect(() => { if (dataLoaded && products.length > 0) save(KEYS.products, products); }, [products, dataLoaded]);
   useEffect(() => { if (dataLoaded) save(KEYS.localLoans, loans); }, [loans, dataLoaded]);
+
+  function updateProducts(updater:(current:Product[])=>Product[]) {
+    const current = load<Product[]>(KEYS.products, products);
+    const next = updater(current);
+    save(KEYS.products, next);
+    setProducts(next);
+  }
+
+  function recordMovement(movement:StockMovement) {
+    const current = load<StockMovement[]>(KEYS.stockMovements, []);
+    const next = [movement, ...current].slice(0, 5000);
+    save(KEYS.stockMovements, next);
+    setMovements(next);
+  }
+
+  const movementProduct = (product:Product, type:StockMovement["type"], quantity:number, delta:number, reason:string, referenceId?:number):StockMovement => ({ id:Date.now()+Math.floor(Math.random()*1000), productId:product.id, productName:product.name, type, quantity, delta, reason, createdAt:new Date().toISOString(), referenceId });
 
   const filtered = useMemo(() => products.filter(p => {
     const q = search.toLowerCase().trim();
@@ -56,6 +75,12 @@ export default function InventarioPage() {
   const purchaseUnits = useMemo(() => purchaseList.reduce((sum,p) => sum + (p.minStock - p.stock), 0), [purchaseList]);
   const defectEntries = useMemo(() => products.flatMap(p => (p.defects || []).map(d => ({ ...d, productId:p.id, productName:p.name, category:p.category, code:p.code }))).sort((a,b) => b.createdAt.localeCompare(a.createdAt)), [products]);
   const defectiveUnits = useMemo(() => defectEntries.reduce((sum,d) => sum + d.qty, 0), [defectEntries]);
+  const availableUnits = useMemo(() => products.reduce((sum,p) => sum + Math.max(0,p.stock), 0), [products]);
+  const inventoryCost = useMemo(() => products.reduce((sum,p) => sum + Math.max(0,p.stock) * Math.max(0,p.cost), 0), [products]);
+  const salesMovements = useMemo(() => movements.filter(m => m.type === "Venta"), [movements]);
+  const purchaseMovements = useMemo(() => movements.filter(m => m.type === "Compra"), [movements]);
+  const movementSalesUnits = useMemo(() => salesMovements.reduce((sum,m) => sum + m.quantity, 0), [salesMovements]);
+  const movementPurchaseUnits = useMemo(() => purchaseMovements.reduce((sum,m) => sum + m.quantity, 0), [purchaseMovements]);
 
   function exportInventory() {
     const headers = ["ID producto", "Producto", "Categoría", "Código", "Costo", "Precio", "Stock disponible", "Stock mínimo"];
@@ -78,7 +103,7 @@ export default function InventarioPage() {
     const f = new FormData(e.currentTarget);
     const product: Product = { id:Date.now(), name:String(f.get("name") || "").trim(), code:String(f.get("code") || "").trim(), category:String(f.get("category") || "Accesorios"), cost:Number(f.get("cost") || 0), price:Number(f.get("price") || 0), stock:Number(f.get("stock") || 0), minStock:Number(f.get("minStock") || 0) };
     if (!product.name || product.price < 0 || product.stock < 0) return;
-    setProducts(v => [product, ...v]); e.currentTarget.reset(); setProductOpen(false);
+    updateProducts(v => [product, ...v]); if (product.stock > 0) recordMovement(movementProduct(product,"Alta",product.stock,product.stock,"Stock inicial al cargar producto")); e.currentTarget.reset(); setProductOpen(false);
   }
 
   function addLoan(e: FormEvent<HTMLFormElement>) {
@@ -99,26 +124,38 @@ export default function InventarioPage() {
     const product = products.find(p => p.id === productId);
     if (!product || qty <= 0 || qty > product.stock || !reason || !date) return;
     const defect: ProductDefect = { id:Date.now(), qty, reason, date, note, createdAt:new Date().toISOString() };
-    setProducts(v => v.map(p => p.id === productId ? { ...p, stock:p.stock-qty, defects:[defect, ...(p.defects || [])] } : p));
+    updateProducts(v => v.map(p => p.id === productId ? { ...p, stock:p.stock-qty, defects:[defect, ...(p.defects || [])] } : p));
+    recordMovement(movementProduct(product,"Fallado",qty,-qty,`${reason}${note ? " · "+note : ""}`,defect.id));
     e.currentTarget.reset();
   }
 
   function removeDefect(productId:number, defectId:number) {
-    setProducts(v => v.map(p => {
+    const original = products.find(p => p.id === productId);
+    const originalDefect = original?.defects?.find(d => d.id === defectId);
+    updateProducts(v => v.map(p => {
       if (p.id !== productId) return p;
       const defect = (p.defects || []).find(d => d.id === defectId);
       if (!defect) return p;
       return { ...p, stock:p.stock+defect.qty, defects:(p.defects || []).filter(d => d.id !== defectId) };
     }));
+    if (original && originalDefect) recordMovement(movementProduct(original,"Devolución",originalDefect.qty,originalDefect.qty,"Anulación de registro de producto fallado",defectId));
   }
 
-  function adjustStock(id:number, delta:number) { setProducts(v => v.map(p => p.id === id ? { ...p, stock:Math.max(0,p.stock+delta) } : p)); }
-  function setRestockChoice(id:number, choice:"compra"|"omitir"|"pendiente") {
-    setProducts(v => v.map(p => p.id !== id ? p : { ...p, restockSelected:choice === "compra", restockOmitted:choice === "omitir" }));
+  function adjustStock(id:number, delta:number) {
+    const product = load<Product[]>(KEYS.products, products).find(p => p.id === id);
+    if (!product) return;
+    const nextStock = Math.max(0, product.stock + delta);
+    const actualDelta = nextStock - product.stock;
+    if (!actualDelta) return;
+    updateProducts(v => v.map(p => p.id === id ? { ...p, stock:Math.max(0,p.stock+actualDelta) } : p));
+    recordMovement(movementProduct(product,"Ajuste",Math.abs(actualDelta),actualDelta,actualDelta > 0 ? "Ajuste manual: sumar unidades" : "Ajuste manual: restar unidades"));
   }
-  function applyStockUpdate() { if (!selectedProduct || updateQty <= 0) return; setProducts(v => v.map(p => p.id === selectedProduct.id ? { ...p, stock:p.stock+updateQty } : p)); closeUpdateModal(); }
+  function setRestockChoice(id:number, choice:"compra"|"omitir"|"pendiente") {
+    updateProducts(v => v.map(p => p.id !== id ? p : { ...p, restockSelected:choice === "compra", restockOmitted:choice === "omitir" }));
+  }
+  function applyStockUpdate() { if (!selectedProduct || !Number.isInteger(updateQty) || updateQty <= 0) return; const latest = load<Product[]>(KEYS.products, products).find(p => p.id === selectedProduct.id); if (!latest) return; updateProducts(v => v.map(p => p.id === latest.id ? { ...p, stock:p.stock+updateQty, restockSelected:false, restockOmitted:false } : p)); recordMovement(movementProduct(latest,"Compra",updateQty,updateQty,"Entrada de mercadería / reposición")); closeUpdateModal(); }
   function closeUpdateModal() { setUpdateOpen(false); setUpdateSearch(""); setSelectedProductId(null); setUpdateQty(1); }
-  function removeProduct(id:number) { setProducts(v => v.filter(p => p.id !== id)); }
+  function removeProduct(id:number) { const product = load<Product[]>(KEYS.products, products).find(p => p.id === id); if (!product || !window.confirm(`¿Eliminar ${product.name} del inventario?`)) return; updateProducts(v => v.filter(p => p.id !== id)); recordMovement(movementProduct(product,"Ajuste",product.stock,-product.stock,"Producto eliminado del catálogo")); }
   function removeLoan(id:number) { setLoans(v => v.filter(l => l.id !== id)); }
 
   return <AppShell title="Inventario" subtitle="Administra productos, reposición, fallados y préstamos entre locales." active="Inventario" action={<div className="inventory-header-actions"><button className="primary-button inventory-main-action" onClick={exportInventory}><Download size={16}/> Exportar inventario</button><button className="primary-button inventory-main-action" onClick={() => setUpdateOpen(true)}><RefreshCw size={16}/> Actualización</button><button className="primary-button inventory-main-action" onClick={() => setProductOpen(true)}><Plus size={16}/> Cargar producto</button></div>}>
@@ -127,13 +164,14 @@ export default function InventarioPage() {
       <button className={tab === "reposicion" ? "active" : ""} onClick={() => setTab("reposicion")}><AlertTriangle size={16}/> Reposición {pendingRestock.length > 0 && <span className="count-badge">{pendingRestock.length}</span>}</button>
       <button className={tab === "fallados" ? "active" : ""} onClick={() => setTab("fallados")}><PackageX size={16}/> Fallados {defectiveUnits > 0 && <span className="count-badge">{defectiveUnits}</span>}</button>
       <button className={tab === "prestamos" ? "active" : ""} onClick={() => setTab("prestamos")}><CalendarDays size={16}/> Préstamos locales</button>
+      <button className={tab === "movimientos" ? "active" : ""} onClick={() => setTab("movimientos")}><History size={16}/> Movimientos</button>
     </div>
 
-    {tab === "productos" && <section className="card workspace-card inventory-products-card">
+    {tab === "productos" && <><section className="kpis page-kpis inventory-kpis"><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><Box size={18}/></span><span className="neutral-label">CATÁLOGO</span></div><div className="kpi-label">Productos cargados</div><div className="kpi-value">{products.length}</div><div className="kpi-foot">Referencias activas</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><PackageX size={18}/></span><span className={lowStock.length ? "warning-label" : "trend"}>{lowStock.length ? "Atención" : "Al día"}</span></div><div className="kpi-label">Stock bajo</div><div className="kpi-value">{lowStock.length}</div><div className="kpi-foot">Productos bajo el mínimo</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><ShoppingCart size={18}/></span></div><div className="kpi-label">Unidades disponibles</div><div className="kpi-value">{availableUnits}</div><div className="kpi-foot">Unidades en inventario</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><TrendingUp size={18}/></span></div><div className="kpi-label">Valor al costo</div><div className="kpi-value">{money.format(inventoryCost)}</div><div className="kpi-foot">Estimado según stock actual</div></div></section><section className="card workspace-card inventory-products-card">
       <div className="card-heading inventory-card-heading"><div><h2>Productos cargados</h2><p>Consulta y administra todo el inventario desde aquí.</p></div><span className="count-badge">{products.length} productos</span></div>
       <div className="toolbar-row inventory-toolbar" style={{marginTop:16}}><div className="search-field grow"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto..." /></div><select className="filter-select" value={category} onChange={e => setCategory(e.target.value)}><option>Todas las categorías</option>{categories.map(c => <option key={c}>{c}</option>)}</select></div>
       {filtered.length === 0 ? <div className="empty-state compact"><Box size={34}/><b>{products.length ? "Sin resultados" : "Inventario vacío"}</b><span>{products.length ? "Prueba con otra búsqueda o categoría." : "Los productos que cargues aparecerán aquí automáticamente."}</span></div> : <div className="inventory-product-list">{filtered.map(p => <article key={p.id} className="inventory-product-row"><div className="inventory-product-main"><h3>{p.name}</h3><small>{p.category}{p.code ? ` · ${p.code}` : ""}</small>{p.minStock > 0 && p.stock < p.minStock && <small className="inventory-reorder"><AlertTriangle size={11}/> {p.restockOmitted ? "Reposición omitida" : p.restockSelected ? "En lista de compra" : "Reponer"}</small>}</div><div className="inventory-metric"><small>Costo</small><strong>{money.format(p.cost)}</strong></div><div className="inventory-metric"><small>Precio</small><strong>{money.format(p.price)}</strong></div><div className="inventory-metric"><small>Stock</small><strong className={p.minStock > 0 && p.stock < p.minStock ? "low-stock" : ""}>{p.stock}</strong></div><div className="inventory-metric"><small>Mín.</small><strong>{p.minStock}</strong></div><div className="inventory-row-actions"><button className="outline-action" onClick={() => adjustStock(p.id,-1)} title="Restar stock"><Minus size={13}/></button><button className="outline-action" onClick={() => adjustStock(p.id,1)} title="Sumar stock"><Plus size={13}/></button><button className="ghost-button" onClick={() => removeProduct(p.id)} title="Eliminar"><Trash2 size={13}/></button></div></article>)}</div>}
-    </section>}
+    </section></>}
 
     {tab === "reposicion" && <section className="card workspace-card">
       <div className="card-heading inventory-card-heading"><div><h2>Reposición</h2><p>Decide qué productos vas a comprar ahora y cuáles prefieres omitir.</p></div>{purchaseList.length > 0 && <div className="inventory-restock-summary"><strong>{purchaseList.length}</strong><small>en compra · {purchaseUnits} unidades</small></div>}</div>
@@ -164,6 +202,8 @@ export default function InventarioPage() {
       </div>
     </section>}
 
+
+    {tab === "movimientos" && <section className="card workspace-card"><div className="card-heading inventory-card-heading"><div><h2>Historial de movimientos</h2><p>Consulta por qué cambió el stock y cuándo se registró cada entrada o salida.</p></div><button className="primary-button" onClick={() => { const headers=["Fecha","Producto","Tipo","Cantidad","Variación","Motivo"]; const cell=(v:unknown)=>`"${String(v??"").replace(/"/g,'""')}"`; const rows=movements.map(m=>[new Date(m.createdAt).toLocaleString("es-AR"),m.productName,m.type,m.quantity,m.delta,m.reason]); const csv="\\uFEFF"+[headers,...rows].map(row=>row.map(cell).join(";")).join("\\r\\n"); const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8;"})); const link=document.createElement("a"); link.href=url; link.download="cityphone-movimientos.csv"; link.click(); URL.revokeObjectURL(url); }}><Download size={15}/> Exportar movimientos</button></div><div className="inventory-movement-summary"><div><small>Entradas por compras</small><strong>{movementPurchaseUnits} unidades</strong></div><div><small>Salidas por ventas</small><strong>{movementSalesUnits} unidades</strong></div><div><small>Movimientos registrados</small><strong>{movements.length}</strong></div></div>{movements.length===0 ? <div className="empty-state compact"><History size={30}/><b>Aún no hay movimientos</b><span>Las compras, ventas y ajustes que se registren a partir de la actualización aparecerán aquí.</span></div> : <div className="inventory-movement-list">{movements.map(m=><article className="inventory-movement-row" key={m.id}><div className={m.delta>0?"inventory-movement-icon positive":"inventory-movement-icon negative"}>{m.delta>0?<Plus size={16}/>:<Minus size={16}/>}</div><div className="inventory-movement-info"><b>{m.productName}</b><small>{m.type} · {m.reason}</small><small>{new Date(m.createdAt).toLocaleString("es-AR",{dateStyle:"short",timeStyle:"short"})}</small></div><div className="inventory-movement-quantity"><strong className={m.delta>0?"positive-text":"negative-text"}>{m.delta>0?"+":""}{m.delta}</strong><small>unidades</small></div></article>)}</div>}</section>}
     {tab === "prestamos" && <section className="card workspace-card">
       <div className="card-heading inventory-card-heading"><div><h2>Préstamos locales</h2><p>Registra productos prestados por otros locales.</p></div><button className="outline-action" onClick={() => setLoanOpen(v => !v)}><Plus size={16}/> Nuevo préstamo</button></div>
       {loanOpen && <form onSubmit={addLoan} className="section-gap"><div className="form-grid"><label className="field-label">Producto<input name="product" required placeholder="Ej. Vidrio Samsung A15" /></label><label className="field-label">Fecha<input name="date" type="date" required /></label><label className="field-label">Local que lo prestó<input name="store" required placeholder="Nombre o número del local" /></label></div><div className="inventory-form-actions"><button className="primary-button" type="submit">Guardar préstamo</button><button className="outline-action" type="button" onClick={()=>setLoanOpen(false)}>Cancelar</button></div></form>}
