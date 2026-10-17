@@ -18,7 +18,7 @@ export type Repair = { id:number; nombre:string; apellido:string; telefono:strin
 export type Quote = { id:number; cliente:string; telefono:string; equipo:string; reparacion:string; costo:number; precio:number; estado:string; createdAt:string };
 export type Part = { id:number; name:string; model:string; cost:number; price:number; stock:number; minStock:number };
 export type LocalLoan = { id:number; product:string; date:string; store:string; createdAt:string };
-export type StockMovement = { id:number; productId:number; productName:string; type:"Compra"|"Venta"|"Fallado"|"Devolución"|"Ajuste"|"Alta"; quantity:number; delta:number; reason:string; createdAt:string; referenceId?:number };
+export type StockMovement = { id:number; productId:number; productName:string; type:"Compra"|"Venta"|"Fallado"|"Devolución"|"Ajuste"|"Alta"; quantity:number; delta:number; reason:string; createdAt:string; referenceId?:number; unitValue?:number; totalValue?:number };
 
 export const KEYS = { products:"cityphone_products_v1", sales:"cityphone_sales_v1", cash:"cityphone_cash_v1", cashClosures:"cityphone_cash_closures_v1", funds:"cityphone_funds_v1", repairs:"cityphone_repairs_v1", quotes:"cityphone_quotes_v1", parts:"cityphone_parts_v1", localLoans:"cityphone_local_loans_v1", stockMovements:"cityphone_stock_movements_v1", loyaltyCustomers:"cityphone_loyalty_customers_v1" };
 export const CLOUD_ENDPOINT = "https://yftaloxtylijudnoewrm.supabase.co/functions/v1/cityphone-sync";
