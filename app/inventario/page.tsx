@@ -56,17 +56,23 @@ export default function InventarioPage() {
 
   const movementProduct = (product:Product, type:StockMovement["type"], quantity:number, delta:number, reason:string, referenceId?:number):StockMovement => { const unitValue = type === "Compra" || type === "Alta" ? product.cost : product.price; return { id:Date.now()+Math.floor(Math.random()*1000), productId:product.id, productName:product.name, type, quantity, delta, reason, createdAt:new Date().toISOString(), referenceId, unitValue, totalValue:unitValue*quantity }; };
 
-  const filtered = useMemo(() => {
+  // Filtrar primero por categoría para que el selector nunca muestre artículos de otras categorías.
+  const filtered = products.filter(p => {
+    const selectedCategory = category.trim().toLocaleLowerCase("es");
+    const productCategory = (p.category || "").trim().toLocaleLowerCase("es");
+    const matchesCategory = selectedCategory === "todas las categorías" || productCategory === selectedCategory;
+    if (!matchesCategory) return false;
+
     const q = search.trim().toLocaleLowerCase("es");
-    const normalizedCategory = (value: string) => value.trim().toLocaleLowerCase("es");
-    return products.filter(p => {
-      const productCategory = normalizedCategory(p.category || "");
-      const matchesSearch = !q || p.name.toLocaleLowerCase("es").includes(q) || productCategory.includes(q) || (p.code || "").toLocaleLowerCase("es").includes(q);
-      const matchesCategory = category === "Todas las categorías" || productCategory === normalizedCategory(category);
-      const matchesStock = stockStatus === "todos" || (stockStatus === "bajo" && p.minStock > 0 && p.stock < p.minStock) || (stockStatus === "sin" && p.stock <= 0);
-      return matchesSearch && matchesCategory && matchesStock;
-    });
-  }, [products, search, category, stockStatus]);
+    const matchesSearch = !q ||
+      (p.name || "").toLocaleLowerCase("es").includes(q) ||
+      productCategory.includes(q) ||
+      (p.code || "").toLocaleLowerCase("es").includes(q);
+    const matchesStock = stockStatus === "todos" ||
+      (stockStatus === "bajo" && p.minStock > 0 && p.stock < p.minStock) ||
+      (stockStatus === "sin" && p.stock <= 0);
+    return matchesSearch && matchesStock;
+  });
 
   const updateResults = useMemo(() => {
     const q = updateSearch.toLowerCase().trim();
@@ -178,8 +184,8 @@ export default function InventarioPage() {
     </div>
 
     {tab === "productos" && <><section className="kpis page-kpis inventory-kpis"><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><Box size={18}/></span><span className="neutral-label">CATÁLOGO</span></div><div className="kpi-label">Productos cargados</div><div className="kpi-value">{products.length}</div><div className="kpi-foot">Referencias activas</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><PackageX size={18}/></span><span className={lowStock.length ? "warning-label" : "trend"}>{lowStock.length ? "Atención" : "Al día"}</span></div><div className="kpi-label">Stock bajo</div><div className="kpi-value">{lowStock.length}</div><div className="kpi-foot">Productos bajo el mínimo</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><ShoppingCart size={18}/></span></div><div className="kpi-label">Unidades disponibles</div><div className="kpi-value">{availableUnits}</div><div className="kpi-foot">Unidades en inventario</div></div><div className="card kpi-card"><div className="kpi-top"><span className="icon-box"><TrendingUp size={18}/></span></div><div className="kpi-label">Valor al costo</div><div className="kpi-value">{money.format(inventoryCost)}</div><div className="kpi-foot">Estimado según stock actual</div></div></section><section className="card workspace-card inventory-products-card">
-      <div className="card-heading inventory-card-heading"><div><h2>Productos cargados</h2><p>Consulta y administra todo el inventario desde aquí.</p></div><span className="count-badge">{products.length} productos</span></div>
-      <div className="toolbar-row inventory-toolbar" style={{marginTop:16}}><div className="search-field grow"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto..." /></div><select className="filter-select" value={category} onChange={e => setCategory(e.target.value)}><option>Todas las categorías</option>{categories.map(c => <option key={c}>{c}</option>)}</select><select className="filter-select" aria-label="Filtrar por estado de stock" value={stockStatus} onChange={e => setStockStatus(e.target.value)}><option value="todos">Todo el stock</option><option value="bajo">Stock bajo</option><option value="sin">Sin stock</option></select></div>
+      <div className="card-heading inventory-card-heading"><div><h2>Productos cargados</h2><p>Consulta y administra todo el inventario desde aquí.</p><p aria-live="polite">Mostrando {filtered.length} de {products.length} productos{category !== "Todas las categorías" ? ` · ${category}` : ""}</p></div><span className="count-badge">{products.length} productos</span></div>
+      <div className="toolbar-row inventory-toolbar" style={{marginTop:16}}><div className="search-field grow"><Search size={18}/><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar producto..." /></div><select className="filter-select" aria-label="Filtrar por categoría" value={category} onChange={e => setCategory(e.target.value)}><option value="Todas las categorías">Todas las categorías</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select><select className="filter-select" aria-label="Filtrar por estado de stock" value={stockStatus} onChange={e => setStockStatus(e.target.value)}><option value="todos">Todo el stock</option><option value="bajo">Stock bajo</option><option value="sin">Sin stock</option></select></div>
       {filtered.length === 0 ? <div className="empty-state compact"><Box size={34}/><b>{products.length ? "Sin resultados" : "Inventario vacío"}</b><span>{products.length ? "Prueba con otra búsqueda o categoría." : "Los productos que cargues aparecerán aquí automáticamente."}</span></div> : <div className="inventory-product-list">{filtered.map(p => <article key={p.id} className="inventory-product-row"><div className="inventory-product-main"><h3>{p.name}</h3><small>{p.category}{p.code ? ` · ${p.code}` : ""}</small>{p.minStock > 0 && p.stock < p.minStock && <small className="inventory-reorder"><AlertTriangle size={11}/> {p.restockOmitted ? "Reposición omitida" : p.restockSelected ? "En lista de compra" : "Reponer"}</small>}</div><div className="inventory-metric"><small>Costo</small><strong>{money.format(p.cost)}</strong></div><div className="inventory-metric"><small>Precio</small><strong>{money.format(p.price)}</strong></div><div className="inventory-metric"><small>Stock</small><strong className={p.minStock > 0 && p.stock < p.minStock ? "low-stock" : ""}>{p.stock}</strong></div><div className="inventory-metric"><small>Mín.</small><strong>{p.minStock}</strong></div><div className="inventory-row-actions"><button className="outline-action" onClick={() => adjustStock(p.id,-1)} title="Restar stock"><Minus size={13}/></button><button className="outline-action" onClick={() => adjustStock(p.id,1)} title="Sumar stock"><Plus size={13}/></button><button className="ghost-button" onClick={() => removeProduct(p.id)} title="Eliminar"><Trash2 size={13}/></button></div></article>)}</div>}
     </section></>}
 
