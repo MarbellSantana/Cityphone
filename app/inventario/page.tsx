@@ -24,6 +24,7 @@ export default function InventarioPage() {
   const [tab, setTab] = useState<Tab>("productos");
   const [restockView, setRestockView] = useState<RestockView>("pendientes");
   const [search, setSearch] = useState("");
+  const [defectSearch, setDefectSearch] = useState("");
   const [category, setCategory] = useState("Todas las categorías");
   const [stockStatus, setStockStatus] = useState("todos");
   const today = new Date().toISOString().slice(0,10);
@@ -89,6 +90,18 @@ export default function InventarioPage() {
   const purchaseUnits = useMemo(() => purchaseList.reduce((sum,p) => sum + (p.minStock - p.stock), 0), [purchaseList]);
   const defectEntries = useMemo(() => products.flatMap(p => (p.defects || []).map(d => ({ ...d, productId:p.id, productName:p.name, category:p.category, code:p.code }))).sort((a,b) => b.createdAt.localeCompare(a.createdAt)), [products]);
   const defectiveUnits = useMemo(() => defectEntries.reduce((sum,d) => sum + d.qty, 0), [defectEntries]);
+  const filteredDefectEntries = useMemo(() => {
+    const q = defectSearch.trim().toLocaleLowerCase("es");
+    if (!q) return defectEntries;
+    return defectEntries.filter(d =>
+      d.productName.toLocaleLowerCase("es").includes(q) ||
+      d.category.toLocaleLowerCase("es").includes(q) ||
+      (d.code || "").toLocaleLowerCase("es").includes(q) ||
+      d.reason.toLocaleLowerCase("es").includes(q) ||
+      (d.note || "").toLocaleLowerCase("es").includes(q) ||
+      d.date.includes(q)
+    );
+  }, [defectEntries, defectSearch]);
   const availableUnits = useMemo(() => products.reduce((sum,p) => sum + Math.max(0,p.stock), 0), [products]);
   const inventoryCost = useMemo(() => products.reduce((sum,p) => sum + Math.max(0,p.stock) * Math.max(0,p.cost), 0), [products]);
   const salesMovements = useMemo(() => movements.filter(m => m.type === "Venta"), [movements]);
@@ -212,9 +225,11 @@ export default function InventarioPage() {
         </div>
         <div className="inventory-form-actions"><button className="primary-button" type="submit"><PackageX size={15}/> Registrar fallado</button></div>
       </form>
-      <div className="inventory-table" style={{marginTop:20}}>
+      <div className="search-field" style={{marginTop:20,marginBottom:12,maxWidth:520}}><Search size={18}/><input aria-label="Buscar productos fallados" value={defectSearch} onChange={e => setDefectSearch(e.target.value)} placeholder="Buscar por producto, motivo, nota o fecha..." /></div>
+      <p aria-live="polite" style={{marginBottom:10,color:"var(--muted, #6b7280)",fontSize:13}}>Mostrando {filteredDefectEntries.length} de {defectEntries.length} registros</p>
+      <div className="inventory-table">
         <div className="inventory-head" style={{gridTemplateColumns:"1.5fr .55fr 1.4fr .8fr .65fr"}}><span>Producto</span><span>Cant.</span><span>Motivo</span><span>Fecha</span><span>Acción</span></div>
-        {defectEntries.length===0 ? <div className="empty-state compact"><PackageX size={32}/><b>Sin productos fallados</b><span>Los cambios de garantía y productos defectuosos aparecerán aquí.</span></div> : defectEntries.map(d => <div className="inventory-loan-row" style={{gridTemplateColumns:"1.5fr .55fr 1.4fr .8fr .65fr"}} key={`${d.productId}-${d.id}`}><span><b>{d.productName}</b><small>{d.category}{d.code ? ` · ${d.code}` : ""}{d.note ? ` · ${d.note}` : ""}</small></span><span><small>Unidades</small><b>{d.qty}</b></span><span><small>Motivo</small>{d.reason}</span><span><small>Fecha</small>{new Date(`${d.date}T00:00:00`).toLocaleDateString("es-AR")}</span><span><button className="outline-action" onClick={() => removeDefect(d.productId,d.id)} title="Anular y devolver al stock"><Undo2 size={14}/> Anular</button></span></div>)}
+        {defectEntries.length===0 ? <div className="empty-state compact"><PackageX size={32}/><b>Sin productos fallados</b><span>Los cambios de garantía y productos defectuosos aparecerán aquí.</span></div> : filteredDefectEntries.length===0 ? <div className="empty-state compact"><Search size={30}/><b>Sin resultados</b><span>Prueba con otra palabra o parte del nombre.</span></div> : filteredDefectEntries.map(d => <div className="inventory-loan-row" style={{gridTemplateColumns:"1.5fr .55fr 1.4fr .8fr .65fr"}} key={`${d.productId}-${d.id}`}><span><b>{d.productName}</b><small>{d.category}{d.code ? ` · ${d.code}` : ""}{d.note ? ` · ${d.note}` : ""}</small></span><span><small>Unidades</small><b>{d.qty}</b></span><span><small>Motivo</small>{d.reason}</span><span><small>Fecha</small>{new Date(`${d.date}T00:00:00`).toLocaleDateString("es-AR")}</span><span><button className="outline-action" onClick={() => removeDefect(d.productId,d.id)} title="Anular y devolver al stock"><Undo2 size={14}/> Anular</button></span></div>)}
       </div>
     </section>}
 
