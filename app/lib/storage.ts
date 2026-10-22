@@ -1,6 +1,7 @@
 import { GLASS_PRODUCTS } from "./glass-products";
 import { CAMERA_GLASS_PRODUCTS } from "./camera-glass-products";
 import { MAGSAFE_CASE_PRODUCTS } from "./magsafe-case-products";
+import { getSupabaseBrowserClient } from "./supabase-browser";
 
 export type ProductDefect = { id:number; qty:number; reason:string; date:string; note?:string; createdAt:string };
 export type Product = { id:number; name:string; category:string; cost:number; price:number; stock:number; minStock:number; code?:string; restockOmitted?:boolean; restockSelected?:boolean; defects?:ProductDefect[] };
@@ -66,7 +67,27 @@ function writeDirty(value:Record<string,number>){if(typeof window!=="undefined")
 export function getDirtyKeys():string[]{return Object.keys(readDirty());}
 export function clearDirtyKeys(keys:string[]){const dirty=readDirty();let changed=false;for(const key of keys){if(key in dirty){delete dirty[key];changed=true;}}if(changed)writeDirty(dirty);}
 function markDirty(key:string){const dirty=readDirty();dirty[key]=Date.now();writeDirty(dirty);}
-async function cloudRequest<T>(body:Record<string,unknown>):Promise<T>{const r=await fetch(CLOUD_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),cache:"no-store"});const data=await r.json().catch(()=>({}));if(!r.ok||data?.ok===false)throw new Error(data?.error||"No se pudo sincronizar con la nube");return data as T;}
+async function cloudRequest<T>(body:Record<string,unknown>):Promise<T>{
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) throw new Error("Falta configurar la autenticación de City Phone.");
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || !session?.access_token) throw new Error("Inicia sesión para sincronizar City Phone.");
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anonKey) throw new Error("Falta configurar la clave pública de Supabase.");
+  const r=await fetch(CLOUD_ENDPOINT,{
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "apikey":anonKey,
+      "Authorization":`Bearer ${session.access_token}`,
+    },
+    body:JSON.stringify(body),
+    cache:"no-store"
+  });
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok||data?.ok===false)throw new Error(data?.error||"No se pudo sincronizar con la nube");
+  return data as T;
+}
 export async function cloudPull():Promise<{state:Record<string,unknown>;updatedAt:Record<string,string>}>{return cloudRequest({action:"pull"});}
 export async function cloudBootstrap(state:Record<string,unknown>,dirtyKeys:string[]):Promise<{state:Record<string,unknown>;updatedAt:Record<string,string>}>{return cloudRequest({action:"bootstrap",state,dirtyKeys});}
 async function pushCloud<T>(key:string,value:T){await cloudRequest({action:"push",key,value});if(typeof window!=="undefined"&&localStorage.getItem(key)===JSON.stringify(value))clearDirtyKeys([key]);if(typeof window!=="undefined")localStorage.setItem(CLOUD_LAST_SYNC_KEY,new Date().toISOString());}
