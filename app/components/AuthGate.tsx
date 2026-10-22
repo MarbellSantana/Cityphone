@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient, ALLOWED_CITYPHONE_EMAIL } from "../lib/supabase-browser";
 import CloudSync from "./CloudSync";
@@ -98,7 +99,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   return <><CloudSync />{children}<button type="button" onClick={signOut} disabled={busy} aria-label="Cerrar sesión" style={logoutStyle}>Cerrar sesión</button></>;
 }
 
-const pageStyle: React.CSSProperties = {
+const pageStyle: CSSProperties = {
   minHeight: "100vh", display: "grid", placeItems: "center", padding: 24,
   background: "#f5f8f5", color: "#18251b", fontFamily: "Arial, sans-serif",
 };
