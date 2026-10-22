@@ -18,5 +18,7 @@ export function getSupabaseBrowserClient(): SupabaseClient | null {
   return client;
 }
 
-export const ALLOWED_CITYPHONE_EMAIL =
-  (process.env.NEXT_PUBLIC_CITYPHONE_ALLOWED_EMAIL || "").trim().toLowerCase();
+export const ALLOWED_CITYPHONE_EMAILS = (process.env.NEXT_PUBLIC_CITYPHONE_ALLOWED_EMAIL || "")
+  .split(",")
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
