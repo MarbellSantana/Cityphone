@@ -25,6 +25,7 @@ export default function InventarioPage() {
   const [restockView, setRestockView] = useState<RestockView>("pendientes");
   const [search, setSearch] = useState("");
   const [defectSearch, setDefectSearch] = useState("");
+  const [defectProductSearch, setDefectProductSearch] = useState("");
   const [category, setCategory] = useState("Todas las categorías");
   const [stockStatus, setStockStatus] = useState("todos");
   const today = new Date().toISOString().slice(0,10);
@@ -217,7 +218,8 @@ export default function InventarioPage() {
       <div className="inventory-update-hero" style={{marginTop:16}}><div className="inventory-update-icon"><PackageX size={20}/></div><div><b>Registrar producto fallado</b><span>Úsalo para vidrios que vienen malos, fundas o accesorios defectuosos y cambios dentro de la garantía de hasta 3 meses.</span></div></div>
       <form onSubmit={addDefect} className="section-gap">
         <div className="inventory-product-form-grid">
-          <label className="field-label modal-wide">Producto<select name="productId" required defaultValue=""><option value="" disabled>Selecciona un producto</option>{products.map(p => <option key={p.id} value={p.id}>{p.name} · Stock {p.stock}</option>)}</select></label>
+          <label className="field-label modal-wide">Buscar producto<input type="search" value={defectProductSearch} onChange={e => setDefectProductSearch(e.target.value)} placeholder="Escribe el nombre o código del producto..." autoComplete="off" /></label>
+          <label className="field-label modal-wide">Producto<select name="productId" required defaultValue=""><option value="" disabled>Selecciona un producto ({products.filter(p => { const q = defectProductSearch.trim().toLocaleLowerCase("es"); return !q || p.name.toLocaleLowerCase("es").includes(q) || String(p.code || "").toLocaleLowerCase("es").includes(q); }).length} resultados)</option>{products.filter(p => { const q = defectProductSearch.trim().toLocaleLowerCase("es"); return !q || p.name.toLocaleLowerCase("es").includes(q) || String(p.code || "").toLocaleLowerCase("es").includes(q); }).map(p => <option key={p.id} value={p.id}>{p.name} · Stock {p.stock}</option>)}</select>{products.filter(p => { const q = defectProductSearch.trim().toLocaleLowerCase("es"); return !q || p.name.toLocaleLowerCase("es").includes(q) || String(p.code || "").toLocaleLowerCase("es").includes(q); }).length === 0 && <small>No hay productos que coincidan con esa búsqueda.</small>}</label>
           <label className="field-label">Cantidad<input name="qty" type="number" min="1" step="1" required defaultValue="1" /></label>
           <label className="field-label">Motivo<select name="reason" required defaultValue="Cambio por garantía (hasta 3 meses)"><option>Cambio por garantía (hasta 3 meses)</option><option>Fallado de fábrica / proveedor</option><option>Otro</option></select></label>
           <label className="field-label">Fecha<input name="date" type="date" required defaultValue={today} /></label>
