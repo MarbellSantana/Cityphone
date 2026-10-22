@@ -3,7 +3,7 @@ import "./globals.css";
 import "./responsive.css";
 import "./inventory-polish.css";
 import PWARegister from "./pwa-register";
-import CloudSync from "./components/CloudSync";
+import AuthGate from "./components/AuthGate";
 
 export const metadata: Metadata = {
   title: "City Phone | Gestión del local",
@@ -27,8 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="es">
       <body>
         <PWARegister />
-        <CloudSync />
-        {children}
+        <AuthGate>{children}</AuthGate>
       </body>
     </html>
   );
