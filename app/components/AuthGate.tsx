@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { getSupabaseBrowserClient, ALLOWED_CITYPHONE_EMAIL } from "../lib/supabase-browser";
+import { getSupabaseBrowserClient, ALLOWED_CITYPHONE_EMAILS } from "../lib/supabase-browser";
 import CloudSync from "./CloudSync";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
@@ -38,8 +38,8 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   async function signIn() {
     if (!supabase) return;
-    if (!ALLOWED_CITYPHONE_EMAIL) {
-      setMessage("Falta configurar el correo autorizado en GitHub antes de habilitar el acceso.");
+    if (!ALLOWED_CITYPHONE_EMAILS.length) {
+      setMessage("Falta configurar los correos autorizados en GitHub antes de habilitar el acceso.");
       return;
     }
     setBusy(true);
@@ -79,16 +79,16 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 2, color: "#39834b" }}>CITY PHONE</div>
       <h1 style={{ margin: "10px 0 8px", fontSize: 28 }}>Tu local, bajo control.</h1>
       <p style={{ color: "#5d665f", lineHeight: 1.55, margin: "0 0 24px" }}>Inicia sesión con tu cuenta de Google para acceder al sistema de gestión.</p>
-      <button type="button" onClick={signIn} disabled={busy || !ALLOWED_CITYPHONE_EMAIL} style={buttonStyle}>
+      <button type="button" onClick={signIn} disabled={busy || !ALLOWED_CITYPHONE_EMAILS.length} style={buttonStyle}>
         {busy ? "Conectando…" : "Continuar con Google"}
       </button>
-      {!ALLOWED_CITYPHONE_EMAIL && <p style={warningStyle}>Falta configurar el correo autorizado en las variables de GitHub antes de habilitar el acceso.</p>}
+      {!ALLOWED_CITYPHONE_EMAILS.length && <p style={warningStyle}>Falta configurar los correos autorizados en las variables de GitHub antes de habilitar el acceso.</p>}
       {message && <p role="alert" style={warningStyle}>{message}</p>}
     </section></main>;
   }
 
   const email = session.user.email?.trim().toLowerCase() || "";
-  if (!ALLOWED_CITYPHONE_EMAIL || email !== ALLOWED_CITYPHONE_EMAIL) {
+  if (!ALLOWED_CITYPHONE_EMAILS.length || !ALLOWED_CITYPHONE_EMAILS.includes(email)) {
     return <main style={pageStyle}><section style={panelStyle}>
       <h1 style={{ marginTop: 0 }}>Acceso no autorizado</h1>
       <p>Esta cuenta de Google no está autorizada para usar City Phone.</p>
