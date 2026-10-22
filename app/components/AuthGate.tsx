@@ -88,7 +88,6 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   const email = session.user.email?.trim().toLowerCase() || "";
   if (!ALLOWED_CITYPHONE_EMAIL || email !== ALLOWED_CITYPHONE_EMAIL) {
-    void supabase.auth.signOut();
     return <main style={pageStyle}><section style={panelStyle}>
       <h1 style={{ marginTop: 0 }}>Acceso no autorizado</h1>
       <p>Esta cuenta de Google no está autorizada para usar City Phone.</p>
