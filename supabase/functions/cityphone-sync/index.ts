@@ -6,19 +6,14 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:3000",
 ]);
 const PROTECTED_PRODUCTS_KEY = "cityphone_products_v1";
-
-const cameraRows: Array<[string, number]> = [
-  ["Protector cámara completo iPhone 13",4],["Protector cámara completo iPhone 14/14 Plus",6],["Protector cámara completo iPhone 15/15 Plus",3],["Protector cámara completo iPhone 12",1],["Protector cámara completo iPhone 11 Pro Max",1],["Protector cámara completo iPhone 16/16 Plus",1],
-  ["Protector cámara iPhone 11 Pro/12 Pro/11 Pro Max Rosa",1],["Protector cámara iPhone 11 Pro/12 Pro/11 Pro Max Plateado",2],["Protector cámara iPhone 12 Pro Max Brillo plateado",1],["Protector cámara iPhone 12 Pro Max Brillo negro",1],["Protector cámara iPhone 12/12 Mini/11 Negro",4],["Protector cámara iPhone 12/12 Mini/11 Plateado",2],
-  ["Protector cámara iPhone 14/14 Plus/15/15 Plus Dorado",4],["Protector cámara iPhone 14/14 Plus/15/15 Plus Negro",1],["Protector cámara iPhone 14/14 Plus/15/15 Plus Rosado",2],["Protector cámara iPhone 14/14 Plus/15/15 Plus Plateado",1],["Protector cámara iPhone 14/14 Plus/15/15 Plus Verde",2],["Protector cámara iPhone 14/14 Plus/15/15 Plus Azul",1],["Protector cámara iPhone 14/14 Plus/15/15 Plus Brillo lila",1],["Protector cámara iPhone 14/14 Plus/15/15 Plus Brillo plateado",5],["Protector cámara iPhone 14/14 Plus/15/15 Plus Brillo negro",2],["Protector cámara iPhone 14/14 Plus/15/15 Plus Brillo rosado",1],
-  ["Protector cámara iPhone 14 Pro Max Plateado",4],["Protector cámara iPhone 14 Pro Max Rojo",1],["Protector cámara iPhone 14 Pro Max Dorado",1],["Protector cámara iPhone 14 Pro Max Brillo plateado",7],["Protector cámara iPhone 14 Pro Max Brillo negro",2],["Protector cámara iPhone 14 Pro Max Brillo violeta",1],["Protector cámara iPhone 14 Pro Max Brillo dorado",1],
-  ["Protector cámara iPhone 15 Pro/15 Pro Max Brillo plateado",3],["Protector cámara iPhone 13/13 Mini Plateado",3],["Protector cámara iPhone 13/13 Mini Rosado",2],["Protector cámara iPhone 13 Pro Max Dorado",1],["Protector cámara iPhone 13 Pro Max Negro",1],["Protector cámara iPhone 13 Pro Max Grafito",1],
-  ["Protector cámara iPhone 16/16 Plus/17 Negro",4],["Protector cámara iPhone 16/16 Plus/17 Plateado",1],["Protector cámara iPhone 16/16 Plus/17 Azul",1],["Protector cámara iPhone 16/16 Plus/17 Azul brillo",1],["Protector cámara iPhone 17 Pro Max Negro",1],["Protector cámara iPhone 17 Pro Max Dorado",1],["Protector cámara iPhone 17 Pro Max Plateado",1],["Protector cámara Samsung S24 Plus Grafito",6],["Protector cámara Samsung S24 Ultra Grafito",1],
-];
-const CAMERA_PRODUCTS = cameraRows.map(([name, stock], index) => ({
-  id: 1791000000000 + index, name, category: "Protectores de cámara",
-  cost: 0, price: 14000, stock, minStock: 5,
-}));
+const ALLOWED_KEYS = new Set([
+  "cityphone_products_v1", "cityphone_sales_v1", "cityphone_cash_v1",
+  "cityphone_cash_closures_v1", "cityphone_funds_v1", "cityphone_repairs_v1",
+  "cityphone_quotes_v1", "cityphone_parts_v1", "cityphone_local_loans_v1",
+  "cityphone_stock_movements_v1", "cityphone_loyalty_customers_v1",
+]);
+const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
+const MAX_VALUE_BYTES = 1024 * 1024;
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -88,13 +83,27 @@ async function pull() {
   for (const row of rows) { state[row.key] = row.value; updatedAt[row.key] = row.updated_at; }
   return { state, updatedAt };
 }
-async function push(key: string, value: unknown) {
-  if (key === PROTECTED_PRODUCTS_KEY && Array.isArray(value) && value.length === 0) {
-    return { key, protected: true, ignored: true };
+function validateKey(key: string) {
+  if (!ALLOWED_KEYS.has(key)) throw new Response("Clave de City Phone no permitida", { status: 400 });
+}
+function validateValue(key: string, value: unknown) {
+  validateKey(key);
+  let serialized: string;
+  try { serialized = JSON.stringify(value); } catch { throw new Response("Valor no válido", { status: 400 }); }
+  if (serialized === undefined || new TextEncoder().encode(serialized).length > MAX_VALUE_BYTES) {
+    throw new Response("El valor supera el tamaño permitido o no es válido", { status: 413 });
   }
+  if (key === "cityphone_funds_v1") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Response("Formato inválido para fondos", { status: 400 });
+  } else if (!Array.isArray(value)) {
+    throw new Response("Esta clave debe contener una lista", { status: 400 });
+  }
+}
+async function push(key: string, value: unknown) {
+  validateValue(key, value);
+  if (key === PROTECTED_PRODUCTS_KEY && Array.isArray(value) && value.length === 0) return { key, protected: true, ignored: true };
   const r = await fetch(`${REST}?on_conflict=key`, {
-    method: "POST",
-    headers: restHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
+    method: "POST", headers: restHeaders({ Prefer: "resolution=merge-duplicates,return=representation" }),
     body: JSON.stringify([{ key, value, updated_at: new Date().toISOString() }]),
   });
   const text = await r.text();
@@ -103,11 +112,11 @@ async function push(key: string, value: unknown) {
 }
 async function insertMissing(localState: Record<string, unknown>) {
   const current = await pull();
-  const missingKeys = Object.keys(localState).filter((key) => !(key in current.state));
+  const missingKeys = Object.keys(localState).filter((key) => ALLOWED_KEYS.has(key) && !(key in current.state));
   if (!missingKeys.length) return;
   const rows = missingKeys
     .filter((key) => !(key === PROTECTED_PRODUCTS_KEY && Array.isArray(localState[key]) && (localState[key] as unknown[]).length === 0))
-    .map((key) => ({ key, value: localState[key], updated_at: new Date().toISOString() }));
+    .map((key) => { validateValue(key, localState[key]); return { key, value: localState[key], updated_at: new Date().toISOString() }; });
   if (!rows.length) return;
   const r = await fetch(`${REST}?on_conflict=key`, {
     method: "POST", headers: restHeaders({ Prefer: "resolution=ignore-duplicates,return=minimal" }),
@@ -116,48 +125,35 @@ async function insertMissing(localState: Record<string, unknown>) {
   const text = await r.text();
   if (!r.ok) throw new Error(`No se pudo migrar a la nube (${r.status}): ${text}`);
 }
-async function bootstrap(localState: Record<string, unknown>, dirtyKeys: string[]) {
-  for (const key of dirtyKeys) if (key in localState) await push(key, localState[key]);
+async function bootstrap(localState: Record<string, unknown>) {
+  // Login never overwrites an existing cloud value; timestamp reconciliation happens in the client.
   await insertMissing(localState);
   return await pull();
-}
-async function seedCamera() {
-  const current = await pull();
-  const products = Array.isArray(current.state[PROTECTED_PRODUCTS_KEY])
-    ? current.state[PROTECTED_PRODUCTS_KEY] as Array<Record<string, unknown>> : [];
-  const names = new Set(products.map((p) => String(p?.name ?? "")));
-  const missing = CAMERA_PRODUCTS.filter((p) => !names.has(p.name));
-  if (missing.length) await push(PROTECTED_PRODUCTS_KEY, [...products, ...missing]);
-  return { added: missing.length, total: products.length + missing.length };
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(req) });
+  if (req.method !== "POST") return json(req, { ok: false, error: "Método no permitido" }, 405);
+  const declaredLength = Number(req.headers.get("content-length") || 0);
+  if (declaredLength > MAX_REQUEST_BYTES) return json(req, { ok: false, error: "Solicitud demasiado grande" }, 413);
   try {
     await authorize(req);
     if (!SUPABASE_URL || !SERVICE_ROLE) throw new Error("Supabase no está configurado");
-    const url = new URL(req.url);
-    if (req.method === "GET" && url.searchParams.get("action") === "seed-camera") {
-      const data = await seedCamera();
-      return json(req, { ok: true, ...data });
-    }
-    if (req.method !== "POST") return json(req, { ok: false, error: "Método no permitido" }, 405);
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "pull");
     if (action === "pull") return json(req, { ok: true, ...await pull() });
     if (action === "push") {
       const key = String(body?.key ?? "").trim();
       if (!key) return json(req, { ok: false, error: "Falta la clave" }, 400);
+      validateKey(key);
       return json(req, { ok: true, row: await push(key, body?.value ?? null) });
     }
     if (action === "bootstrap") {
       const localState = body?.state && typeof body.state === "object" && !Array.isArray(body.state)
         ? body.state as Record<string, unknown> : {};
-      const dirtyKeys = Array.isArray(body?.dirtyKeys)
-        ? body.dirtyKeys.map((x: unknown) => String(x)).filter(Boolean) : [];
-      return json(req, { ok: true, ...await bootstrap(localState, dirtyKeys) });
+      if (Object.keys(localState).some((key) => !ALLOWED_KEYS.has(key))) return json(req, { ok: false, error: "La solicitud contiene claves no permitidas" }, 400);
+      return json(req, { ok: true, ...await bootstrap(localState) });
     }
-    if (action === "seed-camera") return json(req, { ok: true, ...await seedCamera() });
     return json(req, { ok: false, error: "Acción no válida" }, 400);
   } catch (error) {
     if (error instanceof Response) return json(req, { ok: false, error: await error.text() }, error.status);
