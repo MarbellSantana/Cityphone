@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, Banknote, CreditCard, DollarSign, Download, Mail, MessageCircle, Minus, Plus, QrCode, Search, ShoppingCart, Split, Trash2, TrendingUp, WalletCards, X } from "lucide-react";
+import { ArrowLeftRight, Banknote, CreditCard, DollarSign, Download, Mail, MessageCircle, Minus, Plus, Printer, QrCode, Search, Share2, ShoppingCart, Split, Trash2, TrendingUp, WalletCards, X } from "lucide-react";
 import AppShell from "../components/AppShell";
 import { CashMovement, KEYS, Product, Sale, SaleItem, StockMovement, load, money, save } from "../lib/storage";
 
@@ -95,6 +95,75 @@ export default function VentasPage(){
   const saleMovements:StockMovement[]=sale.items.map((item,index)=>({id:sale.id+index,productId:item.productId,productName:item.name,type:"Venta",quantity:item.qty,delta:-item.qty,reason:`Venta #${String(sale.id).slice(-6)}`,createdAt:now,referenceId:sale.id,unitValue:item.price,totalValue:item.price*item.qty}));
   save(KEYS.stockMovements,[...saleMovements,...movementList].slice(0,5000));
   const nextSales=[sale,...load<Sale[]>(KEYS.sales,[])];save(KEYS.sales,nextSales);setSales(nextSales);if(sale.cashAmount>0){const m:CashMovement={id:sale.id,type:"Ingreso",concept:`Venta #${String(sale.id).slice(-6)}`,amount:sale.cashAmount,method:"Efectivo",note:"Venta",createdAt:now,source:"sale"};const nextCash=[m,...load<CashMovement[]>(KEYS.cash,[])];save(KEYS.cash,nextCash);setCashMovements(nextCash)}setCart([]);setDeposited(false);setSaleDate(localDateValue());if(invoice){setNotice("Venta registrada. Solicitando autorización a ARCA...");await requestInvoice(sale,customerData)}else setNotice("Venta registrada sin facturar.")}
+ async function shareSaleTicketPdf(s:Sale){
+  const ascii=(value:unknown)=>String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^\x20-\x7E]/g," ").replace(/\s+/g," ").trim();
+  const esc=(value:unknown)=>ascii(value).replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");
+  const date=new Date(s.createdAt);
+  const lines:string[]=[
+   "CITY PHONE",
+   "Av. Corrientes 640 - Local 8 - Galeria Central - CABA",
+   "COMPROBANTE COMUN DE VENTA - NO FISCAL",
+   "Ticket #"+String(s.id).slice(-6),
+   "Fecha: "+date.toLocaleDateString("es-AR")+"   Hora: "+date.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"}),
+   "Cliente: "+(s.customer||"Consumidor final"),
+   "------------------------------------------------------------",
+   "PRODUCTO / DETALLE"
+  ];
+  s.items.forEach(i=>{
+   lines.push(ascii(i.name).slice(0,76));
+   lines.push("  "+i.qty+" x "+ascii(money.format(i.price))+" = "+ascii(money.format(i.qty*i.price)));
+  });
+  lines.push("------------------------------------------------------------");
+  lines.push("TOTAL: "+ascii(money.format(s.total)));
+  lines.push("Pago: "+ascii(s.method));
+  if(s.method==="Pago mixto"){
+   lines.push("Efectivo: "+ascii(money.format(s.cashAmount||0)));
+   lines.push((s.secondaryMethod||"Otro medio")+": "+ascii(money.format(s.otherAmount||0)));
+  }
+  if(s.provider)lines.push("Procesador: "+ascii(s.provider));
+  if(s.invoiceStatus==="Facturada"&&s.invoiceNumber)lines.push("Factura emitida: "+ascii(s.invoiceType||"")+" "+ascii(s.invoiceNumber));
+  lines.push("","Gracias por elegir City Phone.","Comprobante comun. No valido como factura fiscal.");
+  const pageLines=lines.slice(0,47);
+  let stream="BT\n/F1 16 Tf\n50 800 Td\n("+esc(pageLines[0])+") Tj\n/F1 8 Tf\n0 -20 Td\n";
+  for(let i=1;i<pageLines.length;i++){
+   const size=i===2||i===pageLines.length-4?10:9;
+   stream+="/F1 "+size+" Tf\n0 -"+(i===2?20:15)+" Td\n("+esc(pageLines[i])+") Tj\n";
+  }
+  stream+="ET";
+  const objects=[
+   "<< /Type /Catalog /Pages 2 0 R >>",
+   "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+   "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+   "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+   "<< /Length "+stream.length+" >>\nstream\n"+stream+"\nendstream"
+  ];
+  let pdf="%PDF-1.4\n";
+  const offsets=[0];
+  objects.forEach((obj,i)=>{offsets.push(pdf.length);pdf+=(i+1)+" 0 obj\n"+obj+"\nendobj\n";});
+  const xrefOffset=pdf.length;
+  pdf+="xref\n0 "+(objects.length+1)+"\n0000000000 65535 f \n";
+  for(let i=1;i<offsets.length;i++)pdf+=String(offsets[i]).padStart(10,"0")+" 00000 n \n";
+  pdf+="trailer\n<< /Size "+(objects.length+1)+" /Root 1 0 R >>\nstartxref\n"+xrefOffset+"\n%%EOF";
+  const blob=new Blob([pdf],{type:"application/pdf"});
+  const file=new File([blob],"CityPhone-ticket-"+String(s.id).slice(-6)+".pdf",{type:"application/pdf"});
+  const message="Hola, te compartimos tu comprobante de compra de City Phone. Ticket #"+String(s.id).slice(-6)+" - Total "+money.format(s.total)+".";
+  try{
+   const nav=navigator as Navigator&{canShare?:(data:ShareData)=>boolean;share?:(data:ShareData)=>Promise<void>};
+   if(nav.share&&nav.canShare&&nav.canShare({files:[file]})){
+    await nav.share({files:[file],title:"Ticket City Phone",text:message});
+    setNotice("Se abrio el menu para compartir el PDF. Selecciona WhatsApp para enviarlo.");
+    return;
+   }
+  }catch(e){
+   if(e instanceof Error&&e.name==="AbortError")return;
+  }
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+  link.href=url;link.download=file.name;document.body.appendChild(link);link.click();link.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url),1000);
+  window.open("https://wa.me/?text="+encodeURIComponent(message),"_blank","noopener,noreferrer");
+  setNotice("Descargamos el ticket en PDF y abrimos WhatsApp. Adjunta el archivo PDF descargado al chat del cliente.");
+ }
  function exportSalesHistory(){
   const headers=["ID venta","Fecha","Hora","Cliente","Producto","ID producto","Cantidad","Precio unitario","Subtotal producto","Total venta","Método de pago","Procesador","Segundo método","Estado factura"];
   const csvCell=(value:unknown)=>{const text=String(value??"");return `"${text.replace(/"/g,'""')}"`};
@@ -132,7 +201,7 @@ export default function VentasPage(){
      <button className="primary-button full-button" disabled={!canConfirm} onClick={confirmSale} style={{marginTop:10,minHeight:42}}><ShoppingCart size={16}/>{invoice?"Registrar y facturar":"Confirmar venta"}</button>{notice&&<small style={{display:"block",marginTop:10,fontWeight:800}}>{notice}</small>}<button className="ghost-button full-button" onClick={resetSale}><Trash2 size={15}/> Limpiar venta</button>
     </div>
    </div>
-   <div className="card workspace-card" style={{padding:18}}><div className="card-heading"><div><h2>Ventas realizadas</h2><p>Historial completo de ventas registradas.</p></div><div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><span className="count-badge">{sales.length} ventas</span><button className="outline-action" onClick={exportSalesHistory} disabled={sales.length===0} title="Descargar el historial completo en CSV"><Download size={15}/> Exportar historial</button></div></div>{recentSales.length===0?<div className="empty-state compact"><ShoppingCart size={28}/><b>Todavía no hay ventas</b></div>:<div style={{display:"grid",gap:8,marginTop:14,maxHeight:860,overflowY:"auto",paddingRight:3}}>{recentSales.map(s=><article key={s.id} style={{display:"grid",gridTemplateColumns:"minmax(120px,.9fr) minmax(170px,1.4fr) minmax(105px,.8fr) auto auto",gap:10,alignItems:"center",padding:"11px 12px",border:"1px solid var(--border)",borderRadius:12}}><div><b style={{display:"block",fontSize:11}}>Venta #{String(s.id).slice(-6)}</b><small>{new Date(s.createdAt).toLocaleDateString("es-AR")} · {new Date(s.createdAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</small></div><div><small style={{fontWeight:800}}>{s.items.map(i=>`${i.qty}× ${i.name}`).join(" · ")}</small>{s.invoiceRequested&&<small style={{display:"block",marginTop:3,color:s.invoiceStatus==="Facturada"?"var(--green-dark)":"var(--muted)",fontWeight:900}}>{s.invoiceStatus}{s.invoiceNumber?` · ${s.invoiceNumber}`:""}</small>}{s.invoiceStatus==="Facturada"&&<div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>{s.customerPhone&&<button className="outline-action" onClick={()=>shareInvoice(s,"wa")}><MessageCircle size={13}/> WhatsApp</button>}{s.customerEmail&&<button className="outline-action" onClick={()=>shareInvoice(s,"email")}><Mail size={13}/> Correo</button>}</div>}</div><div><b style={{fontSize:10}}>{s.method}</b>{s.provider&&<small style={{display:"block",marginTop:2}}>{s.provider}</small>}{s.secondaryMethod&&<small style={{display:"block"}}>+ {s.secondaryMethod}</small>}{s.method!=="Efectivo"&&<label style={{display:"flex",alignItems:"center",gap:5,marginTop:5,fontSize:9,fontWeight:900,cursor:"pointer"}}><input type="checkbox" checked={!!s.deposited} onChange={e=>toggleDeposited(s.id,e.target.checked)}/> {s.deposited?"En cuenta":"Pendiente"}</label>}</div><strong style={{textAlign:"right"}}>{money.format(s.total)}</strong><button className="ghost-button" title="Eliminar venta" onClick={()=>deleteSale(s)}><Trash2 size={15}/></button></article>)}</div>}</div>
+   <div className="card workspace-card" style={{padding:18}}><div className="card-heading"><div><h2>Ventas realizadas</h2><p>Historial completo de ventas registradas.</p></div><div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}><span className="count-badge">{sales.length} ventas</span><button className="outline-action" onClick={exportSalesHistory} disabled={sales.length===0} title="Descargar el historial completo en CSV"><Download size={15}/> Exportar historial</button></div></div>{recentSales.length===0?<div className="empty-state compact"><ShoppingCart size={28}/><b>Todavía no hay ventas</b></div>:<div style={{display:"grid",gap:8,marginTop:14,maxHeight:860,overflowY:"auto",paddingRight:3}}>{recentSales.map(s=><article key={s.id} style={{display:"grid",gridTemplateColumns:"minmax(120px,.9fr) minmax(170px,1.4fr) minmax(105px,.8fr) auto auto auto",gap:10,alignItems:"center",padding:"11px 12px",border:"1px solid var(--border)",borderRadius:12}}><div><b style={{display:"block",fontSize:11}}>Venta #{String(s.id).slice(-6)}</b><small>{new Date(s.createdAt).toLocaleDateString("es-AR")} · {new Date(s.createdAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</small></div><div><small style={{fontWeight:800}}>{s.items.map(i=>`${i.qty}× ${i.name}`).join(" · ")}</small>{s.invoiceRequested&&<small style={{display:"block",marginTop:3,color:s.invoiceStatus==="Facturada"?"var(--green-dark)":"var(--muted)",fontWeight:900}}>{s.invoiceStatus}{s.invoiceNumber?` · ${s.invoiceNumber}`:""}</small>}{s.invoiceStatus==="Facturada"&&<div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>{s.customerPhone&&<button className="outline-action" onClick={()=>shareInvoice(s,"wa")}><MessageCircle size={13}/> WhatsApp</button>}{s.customerEmail&&<button className="outline-action" onClick={()=>shareInvoice(s,"email")}><Mail size={13}/> Correo</button>}</div>}</div><div><b style={{fontSize:10}}>{s.method}</b>{s.provider&&<small style={{display:"block",marginTop:2}}>{s.provider}</small>}{s.secondaryMethod&&<small style={{display:"block"}}>+ {s.secondaryMethod}</small>}{s.method!=="Efectivo"&&<label style={{display:"flex",alignItems:"center",gap:5,marginTop:5,fontSize:9,fontWeight:900,cursor:"pointer"}}><input type="checkbox" checked={!!s.deposited} onChange={e=>toggleDeposited(s.id,e.target.checked)}/> {s.deposited?"En cuenta":"Pendiente"}</label>}</div><strong style={{textAlign:"right"}}>{money.format(s.total)}</strong><button className="outline-action" title="Generar ticket PDF y compartir por WhatsApp" onClick={()=>shareSaleTicketPdf(s)} style={{padding:"7px 9px",fontSize:10}}><Share2 size={14}/> PDF / WhatsApp</button><button className="ghost-button" title="Eliminar venta" onClick={()=>deleteSale(s)}><Trash2 size={15}/></button></article>)}</div>}</div>
   </section>
   {productPickerOpen&&<div style={{position:"fixed",inset:0,zIndex:120,background:"rgba(10,18,13,.46)",display:"grid",placeItems:"center",padding:12}} onMouseDown={()=>setProductPickerOpen(false)}><section className="card workspace-card" role="dialog" aria-modal="true" aria-labelledby="add-sale-product-title" style={{width:"min(720px,calc(100vw - 24px))",maxHeight:"88vh",overflowY:"auto",boxShadow:"0 28px 90px rgba(0,0,0,.28)",padding:18}} onMouseDown={e=>e.stopPropagation()}><div className="card-heading"><div><span className="eyebrow">NUEVA VENTA</span><h2 id="add-sale-product-title">Agregar producto</h2><p>Busca un artículo y agrégalo al carrito.</p></div><button className="ghost-button" onClick={()=>setProductPickerOpen(false)} aria-label="Cerrar"><X size={18}/></button></div><div className="search-field" style={{marginTop:14}}><Search size={17}/><input autoFocus value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar producto..."/></div><div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:10}}>{categories.map(c=><button key={c} onClick={()=>setCategory(c)} className={category===c?"primary-button":"outline-action"} style={{padding:"7px 12px",borderRadius:999,fontSize:10}}>{c}</button>)}</div><div style={{display:"grid",gap:8,marginTop:12}}>{results.length===0?<div className="empty-state compact"><Search size={26}/><b>Sin resultados</b><span>No encontramos productos con esa búsqueda.</span></div>:results.map(p=><button key={p.id} onClick={()=>chooseProduct(p)} disabled={p.stock<=0} className="outline-action" style={{justifyContent:"space-between",width:"100%",padding:"11px 12px"}}><span style={{textAlign:"left"}}><b style={{display:"block"}}>{p.name}</b><small>{p.category}{p.code?` · ${p.code}`:""}</small></span><span style={{textAlign:"right"}}><b style={{display:"block"}}>{money.format(p.price)}</b><small>{p.stock>0?`${p.stock} disponibles`:"Sin stock"}</small></span></button>)}</div></section></div>}
  </AppShell>;
