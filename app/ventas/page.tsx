@@ -12,9 +12,9 @@ type FeePlan={id:string;label:string;rate:number};
 type ChipPlan={id:string;label:string;price:number};
 const ARCA_ENDPOINT="https://yftaloxtylijudnoewrm.supabase.co/functions/v1/arca-invoice";
 const PLANS:Record<string,Partial<Record<ProcessorMethod,FeePlan[]>>>={
- Santander:{Débito:[{id:"san-deb",label:"Débito estándar",rate:1.4641}],Crédito:[{id:"san-cre",label:"Crédito estándar",rate:2.9282}]},
- TotalCoin:{Débito:[{id:"tc-deb-instant",label:"Débito inmediato",rate:3.025},{id:"tc-deb-2d",label:"Débito a 2 días",rate:2.4079}],Crédito:[{id:"tc-cre-instant",label:"Crédito inmediato",rate:5.35}],QR:[{id:"tc-qr",label:"QR estándar",rate:.968}],PIX:[{id:"tc-pix",label:"PIX estándar",rate:0}]},
- "Francés":{Débito:[{id:"bbva-deb",label:"Débito estándar",rate:3.6179}],Crédito:[{id:"bbva-cre-10d",label:"Crédito estándar",rate:3.6179}],QR:[{id:"bbva-qr",label:"QR estándar",rate:.968}]},
+ Santander:{Débito:[{id:"san-deb",label:"Acreditación en días",rate:1.4641}],Crédito:[{id:"san-cre",label:"Acreditación en días",rate:2.9282}]},
+ TotalCoin:{Débito:[{id:"tc-deb-instant",label:"Acreditación inmediata",rate:3.025},{id:"tc-deb-2d",label:"Acreditación en 2 días",rate:2.4079}],Crédito:[{id:"tc-cre-instant",label:"Acreditación inmediata",rate:5.35}],QR:[{id:"tc-qr",label:"Acreditación en días",rate:.968}],PIX:[{id:"tc-pix",label:"PIX estándar",rate:0}]},
+ "Francés":{Débito:[{id:"bbva-deb",label:"Acreditación en días",rate:3.6179}],Crédito:[{id:"bbva-cre-10d",label:"Acreditación en días",rate:3.6179}],QR:[{id:"bbva-qr",label:"QR estándar",rate:.968}]},
 };
 const BANKS=["Francés","Santander","TotalCoin"];
 const CHIP_PLANS:Record<string,ChipPlan[]>={Claro:[{id:"claro-10",label:"10 GB",price:23000},{id:"claro-15",label:"15 GB",price:30000},{id:"claro-3-7",label:"3 GB × 7 días",price:19000},{id:"claro-2",label:"2 GB",price:15000}],Movistar:[{id:"movistar-10",label:"10 GB",price:25000},{id:"movistar-7-3",label:"7 GB × 3 días",price:18000}]};
