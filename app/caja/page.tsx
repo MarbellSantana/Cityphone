@@ -5,7 +5,7 @@ import { ArrowLeftRight, Banknote, CalendarDays, CheckCircle2, Landmark, Plus, R
 import AppShell from "../components/AppShell";
 import { CashClosure, CashMovement, KEYS, Sale, load, money, save } from "../lib/storage";
 
-const expenseCategories = ["Alquiler", "Mercadería", "Servicios", "Comisiones", "Insumos", "Impuestos", "Otros"];
+const expenseCategories = ["Alquiler", "Mercadería", "Repuestos", "Servicios", "Comisiones", "Insumos", "Impuestos", "Otros"];
 const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const exchangeMethods = ["Efectivo","Cuenta bancaria"];
 const bankMethods = new Set(["Cuenta bancaria","Transferencia","Débito","Crédito","QR","PIX"]);
